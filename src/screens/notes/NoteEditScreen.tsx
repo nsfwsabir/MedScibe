@@ -8,6 +8,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/TextInput';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
+import { Note } from '../../features/notes/notesApi';
 import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -33,20 +34,29 @@ export function NoteEditScreen({ navigation, route }: Props) {
     );
   }
 
-  return <NoteEditor key={note.id} id={id} insetsTop={insets.top} insetsBottom={insets.bottom} />;
+  return (
+    <NoteEditor
+      key={note.id}
+      id={id}
+      initialNote={note}
+      insetsTop={insets.top}
+      insetsBottom={insets.bottom}
+    />
+  );
 }
 
 function NoteEditor({
   id,
+  initialNote: note,
   insetsTop,
   insetsBottom,
 }: {
   id: string;
+  initialNote: Note;
   insetsTop: number;
   insetsBottom: number;
 }) {
   const navigation = useNavigation<NativeStackNavigationProp<NotesStackParamList>>();
-  const { data: note } = useNote(id);
   const updateNote = useUpdateNote();
 
   const [patientName, setPatientName] = useState(note?.patient_name ?? '');
@@ -147,6 +157,15 @@ function NoteEditor({
             />
           </Card>
         ))}
+
+        {note.raw_transcript ? (
+          <Card style={styles.soapCard}>
+            <Text style={[typography.bodySemibold, { color: colors.muted, marginBottom: spacing.sm }]}>
+              Transcript
+            </Text>
+            <Text style={[typography.body, styles.transcriptText]}>{note.raw_transcript}</Text>
+          </Card>
+        ) : null}
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: Math.max(insetsBottom, 12) }]}>
@@ -200,6 +219,9 @@ const styles = StyleSheet.create({
   soapInput: {
     minHeight: 120,
     textAlignVertical: 'top',
+  },
+  transcriptText: {
+    color: colors.muted,
   },
   actions: {
     flexDirection: 'row',

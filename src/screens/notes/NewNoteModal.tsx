@@ -7,24 +7,21 @@ import { Button } from '../../components/ui/Button';
 import { colors, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 import { useUiStore } from '../../features/ui/uiStore';
-import { useCreateNote } from '../../features/notes/notesQueries';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
 export function NewNoteModal() {
   const visible = useUiStore((s) => s.newNoteModalVisible);
   const setVisible = useUiStore((s) => s.setNewNoteModalVisible);
-  const createNote = useCreateNote();
   const navigation = useNavigation<NativeStackNavigationProp<NotesStackParamList>>();
 
-  const startNote = async (noteType: 'dictation' | 'consultation') => {
+  const startNote = (noteType: 'dictation' | 'consultation') => {
     setVisible(false);
-    const note = await createNote.mutateAsync({
-      note_type: noteType,
-      status: 'draft',
-      visit_date: new Date().toISOString().slice(0, 10),
-    });
-    navigation.navigate('NoteEdit', { id: note.id });
+    if (noteType === 'consultation') {
+      navigation.navigate('Consent', { noteType });
+    } else {
+      navigation.navigate('Recording', { noteType });
+    }
   };
 
   return (
@@ -36,7 +33,7 @@ export function NewNoteModal() {
         </Text>
       </View>
 
-      <Pressable onPress={() => startNote('dictation')} disabled={createNote.isPending}>
+      <Pressable onPress={() => startNote('dictation')} >
         <Card style={styles.target}>
           <Text style={styles.targetIcon}>🎙️</Text>
           <View style={{ flex: 1 }}>
@@ -49,7 +46,7 @@ export function NewNoteModal() {
         </Card>
       </Pressable>
 
-      <Pressable onPress={() => startNote('consultation')} disabled={createNote.isPending}>
+      <Pressable onPress={() => startNote('consultation')} >
         <Card style={styles.target}>
           <Text style={styles.targetIcon}>🔴</Text>
           <View style={{ flex: 1 }}>

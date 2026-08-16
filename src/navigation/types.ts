@@ -8,8 +8,8 @@ export type NotesStackParamList = {
   NoteDetail: { id: string };
   NoteEdit: { id: string };
   Recording: { noteType: 'dictation' | 'consultation' };
-  Consent: undefined;
-  Processing: undefined;
+  Consent: { noteType: 'consultation' };
+  Processing: { noteType: 'dictation' | 'consultation'; durationSeconds: number; audioUri: string };
 };
 
 export type SettingsStackParamList = {

@@ -24,12 +24,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   bootstrap: async () => {
     const { data } = await supabase.auth.getSession();
     const session = data.session ?? (await loadPersistedSession());
-    await persistSession(session);
-    supabase.auth.onAuthStateChange((_event, newSession) => {
-      set({ session: newSession, user: newSession?.user ?? null });
-      void persistSession(newSession);
+    if (session) {
+      await supabase.auth.setSession({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      });
+      await persistSession(session);
+    }
+    set({ session, user: session?.user ?? null });
+    supabase.auth.onAuthStateChange((event, newSession) => {
+      if (newSession) {
+        set({ session: newSession, user: newSession.user ?? null });
+        void persistSession(newSession);
+      } else if (event === 'SIGNED_OUT') {
+        set({ session: null, user: null });
+        void persistSession(null);
+      }
     });
-    set({ session, user: session?.user ?? null, initializing: false });
+    set({ initializing: false });
   },
 
   signIn: async (email, password) => {

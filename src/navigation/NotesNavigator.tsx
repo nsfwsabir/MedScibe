@@ -4,6 +4,9 @@ import { NotesStackParamList } from './types';
 import { HomeScreen } from '../screens/notes/HomeScreen';
 import { NoteDetailScreen } from '../screens/notes/NoteDetailScreen';
 import { NoteEditScreen } from '../screens/notes/NoteEditScreen';
+import { RecordingScreen } from '../screens/notes/RecordingScreen';
+import { ConsentScreen } from '../screens/notes/ConsentScreen';
+import { ProcessingScreen } from '../screens/notes/ProcessingScreen';
 
 const Stack = createNativeStackNavigator<NotesStackParamList>();
 
@@ -13,6 +16,9 @@ export function NotesNavigator() {
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="NoteDetail" component={NoteDetailScreen} />
       <Stack.Screen name="NoteEdit" component={NoteEditScreen} />
+      <Stack.Screen name="Recording" component={RecordingScreen} options={{ gestureEnabled: false }} />
+      <Stack.Screen name="Consent" component={ConsentScreen} />
+      <Stack.Screen name="Processing" component={ProcessingScreen} options={{ gestureEnabled: false }} />
     </Stack.Navigator>
   );
 }
