@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "MedScribe",
+    "slug": "medscribe",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F2ECE4",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.medscribe.app"
+    },
+    "android": {
+      "package": "com.medscribe.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#F2ECE4",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-font",
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F2ECE4"
+        }
+      ]
+    ]
+  }
+}
