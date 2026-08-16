@@ -78,7 +78,7 @@ export type Database = {
   };
 };
 
-export const supabase: SupabaseClient<Database> = createClient<Database>(
-  env.supabaseUrl,
-  env.supabaseAnonKey,
-);
+const url = env.supabaseUrl || 'https://placeholder.supabase.co';
+const anonKey = env.supabaseAnonKey || 'placeholder-anon-key';
+
+export const supabase: SupabaseClient<Database> = createClient<Database>(url, anonKey);
