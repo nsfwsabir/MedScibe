@@ -20,7 +20,7 @@ export class FallbackTranscriber implements Transcriber {
   }
 
   async ensureModel(): Promise<void> {
-    console.warn('[transcription] Using fallback transcriber — whisper.rn needs a dev build');
+    console.log('[transcription] Using fallback transcriber — whisper.rn needs a dev build');
   }
 
   async transcribe(audioUri: string, onProgress?: (progress: number) => void): Promise<TranscriptResult> {
