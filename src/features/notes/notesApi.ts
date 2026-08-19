@@ -5,6 +5,11 @@ export type Note = Database['public']['Tables']['notes']['Row'];
 export type NoteInsert = Database['public']['Tables']['notes']['Insert'];
 export type NoteUpdate = Database['public']['Tables']['notes']['Update'];
 
+export type StructurePatch = Pick<
+  NoteUpdate,
+  'subjective' | 'objective' | 'assessment' | 'plan' | 'chief_complaint' | 'low_confidence_spans'
+>;
+
 export type NoteFilters = {
   query?: string;
   status?: 'draft' | 'finalized';

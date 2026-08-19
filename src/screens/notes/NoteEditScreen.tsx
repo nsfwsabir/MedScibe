@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +20,32 @@ const soapFields: { key: 'subjective' | 'objective' | 'assessment' | 'plan'; lab
   { key: 'assessment', label: 'Assessment (A)' },
   { key: 'plan', label: 'Plan (P)' },
 ];
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function renderTranscript(text: string, lowConfidenceSpans: string[] | null): ReactNode {
+  const spans = (lowConfidenceSpans ?? []).filter((s) => s.trim().length > 0);
+  if (spans.length === 0) {
+    return <Text style={[typography.body, styles.transcriptText]}>{text}</Text>;
+  }
+  const pattern = new RegExp(`(${spans.map(escapeRegExp).join('|')})`, 'gi');
+  const parts = text.split(pattern);
+  return (
+    <Text style={[typography.body, styles.transcriptText]}>
+      {parts.map((part, i) =>
+        spans.some((s) => s.toLowerCase() === part.toLowerCase()) ? (
+          <Text key={i} style={[typography.bodySemibold, { color: colors.error }]}>
+            {part}
+          </Text>
+        ) : (
+          <Text key={i}>{part}</Text>
+        ),
+      )}
+    </Text>
+  );
+}
 
 export function NoteEditScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
@@ -63,6 +89,7 @@ function NoteEditor({
   const [patientAge, setPatientAge] = useState(note?.patient_age != null ? String(note.patient_age) : '');
   const [patientSex, setPatientSex] = useState(note?.patient_sex ?? '');
   const [visitDate, setVisitDate] = useState(note?.visit_date ?? '');
+  const [chiefComplaint, setChiefComplaint] = useState(note?.chief_complaint ?? '');
   const [soap, setSoap] = useState<Record<string, string>>({
     subjective: note?.subjective ?? '',
     objective: note?.objective ?? '',
@@ -83,6 +110,7 @@ function NoteEditor({
           patient_age: age && !Number.isNaN(age) ? age : null,
           patient_sex: patientSex || null,
           visit_date: visitDate || undefined,
+          chief_complaint: chiefComplaint || null,
           subjective: soap.subjective || null,
           objective: soap.objective || null,
           assessment: soap.assessment || null,
@@ -143,6 +171,17 @@ function NoteEditor({
           </View>
         </Card>
 
+        <Card style={styles.soapCard}>
+          <Text style={[typography.bodySemibold, { color: colors.primary, marginBottom: spacing.sm }]}>
+            Chief Complaint
+          </Text>
+          <TextInput
+            placeholder="e.g. persistent dry cough"
+            value={chiefComplaint}
+            onChangeText={setChiefComplaint}
+          />
+        </Card>
+
         {soapFields.map((field) => (
           <Card key={field.key} style={styles.soapCard}>
             <Text style={[typography.bodySemibold, { color: colors.primary, marginBottom: spacing.sm }]}>
@@ -163,7 +202,12 @@ function NoteEditor({
             <Text style={[typography.bodySemibold, { color: colors.muted, marginBottom: spacing.sm }]}>
               Transcript
             </Text>
-            <Text style={[typography.body, styles.transcriptText]}>{note.raw_transcript}</Text>
+            {renderTranscript(note.raw_transcript, note.low_confidence_spans)}
+            {note.low_confidence_spans && note.low_confidence_spans.length > 0 ? (
+              <Text style={[typography.caption, { color: colors.error, marginTop: spacing.xs }]}>
+                Highlighted phrases were unclear in the audio — verify them before finalizing.
+              </Text>
+            ) : null}
           </Card>
         ) : null}
       </ScrollView>

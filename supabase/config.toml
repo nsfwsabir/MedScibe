@@ -1,0 +1,4 @@
+project_id = "medscribe"
+
+[functions.structure-note]
+verify_jwt = true

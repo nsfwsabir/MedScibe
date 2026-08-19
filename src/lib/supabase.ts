@@ -23,6 +23,7 @@ export type Database = {
           audio_path: string | null;
           audio_retention_until: string | null;
           duration_seconds: number | null;
+          low_confidence_spans: string[] | null;
           created_at: string;
           updated_at: string;
           deleted_at: string | null;
@@ -67,6 +68,7 @@ export type Database = {
           audio_path?: string | null;
           audio_retention_until?: string | null;
           duration_seconds?: number | null;
+          low_confidence_spans?: string[] | null;
           updated_at?: string;
           deleted_at?: string | null;
         };

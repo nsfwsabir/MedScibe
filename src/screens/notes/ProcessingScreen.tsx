@@ -4,8 +4,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 import { transcriber } from '../../features/transcription';
-import { useCreateNote } from '../../features/notes/notesQueries';
+import { useCreateNote, useUpdateNote } from '../../features/notes/notesQueries';
+import type { StructurePatch } from '../../features/notes/notesApi';
+import { structureNote } from '../../features/structuring/structureApi';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -37,10 +40,50 @@ export function ProcessingScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { noteType, durationSeconds, audioUri } = route.params;
   const createNote = useCreateNote();
+  const updateNote = useUpdateNote();
   const [step, setStep] = useState<Step>('transcribing');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
+  const noteIdRef = useRef<string | null>(null);
+  const transcriptRef = useRef<string | null>(null);
+
+  const runStructuring = async (noteId: string, transcript: string) => {
+    setStep('structuring');
+    setError(null);
+    const structured = await structureNote({
+      transcript,
+      note_type: noteType,
+    });
+    const patch: StructurePatch = {
+      subjective: structured.subjective || null,
+      objective: structured.objective || null,
+      assessment: structured.assessment || null,
+      plan: structured.plan || null,
+      chief_complaint: structured.chief_complaint_suggestion || null,
+      low_confidence_spans:
+        structured.low_confidence_spans.length > 0 ? structured.low_confidence_spans : null,
+    };
+    await updateNote.mutateAsync({ id: noteId, patch });
+  };
+
+  const runPipeline = async () => {
+    if (!noteIdRef.current) {
+      setStep('transcribing');
+      await transcriber.ensureModel();
+      const result = await transcriber.transcribe(audioUri, setProgress);
+      const note = await createNote.mutateAsync({
+        note_type: noteType,
+        status: 'draft',
+        visit_date: new Date().toISOString().slice(0, 10),
+        raw_transcript: result.text,
+        duration_seconds: durationSeconds,
+      });
+      noteIdRef.current = note.id;
+      transcriptRef.current = result.text;
+    }
+    await runStructuring(noteIdRef.current!, transcriptRef.current!);
+  };
 
   useEffect(() => {
     if (startedRef.current) return;
@@ -48,24 +91,25 @@ export function ProcessingScreen({ navigation, route }: Props) {
 
     (async () => {
       try {
-        await transcriber.ensureModel();
-        const result = await transcriber.transcribe(audioUri, setProgress);
-        const note = await createNote.mutateAsync({
-          note_type: noteType,
-          status: 'draft',
-          visit_date: new Date().toISOString().slice(0, 10),
-          raw_transcript: result.text,
-          duration_seconds: durationSeconds,
-        });
-        setStep('structuring');
-        await new Promise((r) => setTimeout(r, 1400));
-        navigation.replace('NoteEdit', { id: note.id });
+        await runPipeline();
+        navigation.replace('NoteEdit', { id: noteIdRef.current! });
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Something went wrong while processing the audio.');
-        console.error('[processing] transcription failed', e);
+        console.error('[processing] pipeline failed', e);
       }
     })();
-  }, [audioUri, noteType, durationSeconds, createNote, navigation]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleRetry = async () => {
+    try {
+      await runPipeline();
+      navigation.replace('NoteEdit', { id: noteIdRef.current! });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong while structuring the note.');
+      console.error('[processing] structuring failed', e);
+    }
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
@@ -101,6 +145,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
         <View style={styles.footer}>
           <Text style={[typography.bodySemibold, { color: colors.error }]}>Processing failed</Text>
           <Text style={[typography.body, styles.footerText]}>{error}</Text>
+          <Button label="Retry" variant="secondary" onPress={handleRetry} />
         </View>
       ) : null}
     </View>
