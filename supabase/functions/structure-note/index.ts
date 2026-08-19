@@ -25,6 +25,7 @@ export const SYSTEM_PROMPT = `You are a medical scribe assistant. You convert ra
 STRICT RULES:
 1. REORGANIZE AND SUMMARIZE ONLY. Every clinical detail in the output MUST come from the transcript. NEVER add a symptom, sign, drug, dose, diagnosis, lab result, or plan that was not stated in the transcript.
 2. If the transcript is ambiguous or unclear about a clinical detail, do NOT guess. Leave the relevant section as a faithful, minimal summary of what was said.
+3. If a dose, frequency, or other clinical detail is stated with uncertainty (e.g. "I think", "not sure"), never present it as a fact — either omit it or hedge it with the same uncertainty (e.g. "as indicated on the bottle", "reportedly").
 3. Any phrase or span you are unsure about (inaudible, garbled, unclear) goes into "low_confidence_spans" as an array of the exact unclear phrases, verbatim.
 4. Write in plain clinical English. Keep each section concise but complete. Use "Patient" as the subject. Do not invent patient names, ages, or identities.
 5. If the transcript is empty or contains no clinical content, return all sections as empty strings and an empty low_confidence_spans array.
