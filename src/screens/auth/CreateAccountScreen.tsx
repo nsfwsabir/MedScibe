@@ -17,15 +17,23 @@ export function CreateAccountScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const handleSignUp = async () => {
     if (!email || !password) return;
     setSubmitting(true);
     setError(null);
+    setMessage(null);
     try {
       await signUp(email.trim(), password);
-    } catch {
-      setError('Could not create account. Check the email format and try again.');
+      const session = useAuthStore.getState().session;
+      if (!session) {
+        setMessage(
+          'Account created. Check your inbox for a confirmation link, then sign in.',
+        );
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not create account. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -63,6 +71,7 @@ export function CreateAccountScreen({ navigation }: Props) {
             onChangeText={setPassword}
           />
           {error ? <Text style={[typography.caption, styles.errorText]}>{error}</Text> : null}
+          {message ? <Text style={[typography.caption, styles.messageText]}>{message}</Text> : null}
           <Button label="Create Account" size="lg" onPress={handleSignUp} disabled={submitting || !email || password.length < 6} />
           <Button label="Back to Sign In" variant="ghost" onPress={() => navigation.goBack()} />
         </View>
@@ -91,5 +100,8 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: colors.error,
+  },
+  messageText: {
+    color: colors.primary,
   },
 });
