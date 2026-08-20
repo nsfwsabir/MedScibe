@@ -5,11 +5,6 @@ export type Note = Database['public']['Tables']['notes']['Row'];
 export type NoteInsert = Database['public']['Tables']['notes']['Insert'];
 export type NoteUpdate = Database['public']['Tables']['notes']['Update'];
 
-export type StructurePatch = Pick<
-  NoteUpdate,
-  'subjective' | 'objective' | 'assessment' | 'plan' | 'chief_complaint' | 'low_confidence_spans'
->;
-
 export type NoteFilters = {
   query?: string;
   status?: 'draft' | 'finalized';
@@ -25,7 +20,7 @@ export async function fetchNotes(filters: NoteFilters = {}) {
   if (filters.query) {
     const pattern = `%${filters.query}%`;
     q = q.or(
-      `patient_name.ilike.${pattern},raw_transcript.ilike.${pattern},chief_complaint.ilike.${pattern},subjective.ilike.${pattern},objective.ilike.${pattern},assessment.ilike.${pattern},plan.ilike.${pattern}`,
+      `patient_name.ilike.${pattern},raw_transcript.ilike.${pattern},note_text.ilike.${pattern}`,
     );
   }
   const { data, error } = await q

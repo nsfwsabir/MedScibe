@@ -7,14 +7,13 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { transcriber } from '../../features/transcription';
 import { useCreateNote, useUpdateNote } from '../../features/notes/notesQueries';
-import type { StructurePatch } from '../../features/notes/notesApi';
-import { structureNote } from '../../features/structuring/structureApi';
+import { cleanupTranscript } from '../../features/structuring/structureApi';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'Processing'>;
 
-type Step = 'transcribing' | 'structuring';
+type Step = 'transcribing' | 'cleaning';
 
 function StepRow({ label, state }: { label: string; state: 'active' | 'done' | 'queued' }) {
   return (
@@ -38,7 +37,7 @@ function StepRow({ label, state }: { label: string; state: 'active' | 'done' | '
 
 export function ProcessingScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
-  const { noteType, durationSeconds, audioUri } = route.params;
+  const { durationSeconds, audioUri } = route.params;
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
   const [step, setStep] = useState<Step>('transcribing');
@@ -48,32 +47,12 @@ export function ProcessingScreen({ navigation, route }: Props) {
   const noteIdRef = useRef<string | null>(null);
   const transcriptRef = useRef<string | null>(null);
 
-  const runStructuring = async (noteId: string, transcript: string) => {
-    setStep('structuring');
-    setError(null);
-    const structured = await structureNote({
-      transcript,
-      note_type: noteType,
-    });
-    const patch: StructurePatch = {
-      subjective: structured.subjective || null,
-      objective: structured.objective || null,
-      assessment: structured.assessment || null,
-      plan: structured.plan || null,
-      chief_complaint: structured.chief_complaint_suggestion || null,
-      low_confidence_spans:
-        structured.low_confidence_spans.length > 0 ? structured.low_confidence_spans : null,
-    };
-    await updateNote.mutateAsync({ id: noteId, patch });
-  };
-
   const runPipeline = async () => {
     if (!noteIdRef.current) {
       setStep('transcribing');
       await transcriber.ensureModel();
       const result = await transcriber.transcribe(audioUri, setProgress);
       const note = await createNote.mutateAsync({
-        note_type: noteType,
         status: 'draft',
         visit_date: new Date().toISOString().slice(0, 10),
         raw_transcript: result.text,
@@ -82,7 +61,17 @@ export function ProcessingScreen({ navigation, route }: Props) {
       noteIdRef.current = note.id;
       transcriptRef.current = result.text;
     }
-    await runStructuring(noteIdRef.current!, transcriptRef.current!);
+    setStep('cleaning');
+    setError(null);
+    const cleaned = await cleanupTranscript({ transcript: transcriptRef.current! });
+    await updateNote.mutateAsync({
+      id: noteIdRef.current!,
+      patch: {
+        note_text: cleaned.note_text || null,
+        low_confidence_spans:
+          cleaned.low_confidence_spans.length > 0 ? cleaned.low_confidence_spans : null,
+      },
+    });
   };
 
   useEffect(() => {
@@ -106,14 +95,14 @@ export function ProcessingScreen({ navigation, route }: Props) {
       await runPipeline();
       navigation.replace('NoteEdit', { id: noteIdRef.current! });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong while structuring the note.');
-      console.error('[processing] structuring failed', e);
+      setError(e instanceof Error ? e.message : 'Something went wrong while cleaning the note.');
+      console.error('[processing] cleaning failed', e);
     }
   };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
-      <Text style={[typography.heading, styles.title]}>Structuring Clinical Note</Text>
+      <Text style={[typography.heading, styles.title]}>Creating Your Note</Text>
 
       <Card style={styles.card}>
         <StepRow
@@ -128,15 +117,14 @@ export function ProcessingScreen({ navigation, route }: Props) {
             <Text style={[typography.caption, { color: colors.muted }]}>{progress}%</Text>
           </View>
         ) : null}
-        <StepRow label="Structuring your SOAP note..." state={step === 'structuring' ? 'active' : 'queued'} />
+        <StepRow label="Cleaning up the dictation..." state={step === 'cleaning' ? 'active' : 'queued'} />
       </Card>
 
-      {step === 'structuring' ? (
+      {step === 'cleaning' ? (
         <View style={styles.footer}>
           <Text style={[typography.bodySemibold, { color: colors.text }]}>Almost there</Text>
           <Text style={[typography.body, styles.footerText]}>
-            MedScribe is analyzing clinical terms, separating patient questions from clinical
-            findings, and mapping to standard SOAP formatting.
+            MedScribe is removing filler words and fixing punctuation so your note is ready to review.
           </Text>
         </View>
       ) : null}

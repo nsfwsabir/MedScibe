@@ -8,18 +8,13 @@ export type Database = {
         Row: {
           id: string;
           author_id: string;
-          note_type: 'dictation' | 'consultation';
           status: 'draft' | 'finalized';
           patient_name: string | null;
           patient_age: number | null;
           patient_sex: string | null;
           visit_date: string;
-          chief_complaint: string | null;
           raw_transcript: string | null;
-          subjective: string | null;
-          objective: string | null;
-          assessment: string | null;
-          plan: string | null;
+          note_text: string | null;
           audio_path: string | null;
           audio_retention_until: string | null;
           duration_seconds: number | null;
@@ -31,21 +26,17 @@ export type Database = {
         Insert: {
           id?: string;
           author_id?: string;
-          note_type: 'dictation' | 'consultation';
           status?: 'draft' | 'finalized';
           patient_name?: string | null;
           patient_age?: number | null;
           patient_sex?: string | null;
           visit_date?: string;
-          chief_complaint?: string | null;
           raw_transcript?: string | null;
-          subjective?: string | null;
-          objective?: string | null;
-          assessment?: string | null;
-          plan?: string | null;
+          note_text?: string | null;
           audio_path?: string | null;
           audio_retention_until?: string | null;
           duration_seconds?: number | null;
+          low_confidence_spans?: string[] | null;
           created_at?: string;
           updated_at?: string;
           deleted_at?: string | null;
@@ -53,18 +44,13 @@ export type Database = {
         Update: {
           id?: string;
           author_id?: string;
-          note_type?: 'dictation' | 'consultation';
           status?: 'draft' | 'finalized';
           patient_name?: string | null;
           patient_age?: number | null;
           patient_sex?: string | null;
           visit_date?: string;
-          chief_complaint?: string | null;
           raw_transcript?: string | null;
-          subjective?: string | null;
-          objective?: string | null;
-          assessment?: string | null;
-          plan?: string | null;
+          note_text?: string | null;
           audio_path?: string | null;
           audio_retention_until?: string | null;
           duration_seconds?: number | null;

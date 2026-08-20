@@ -15,13 +15,9 @@ export function NewNoteModal() {
   const setVisible = useUiStore((s) => s.setNewNoteModalVisible);
   const navigation = useNavigation<NativeStackNavigationProp<NotesStackParamList>>();
 
-  const startNote = (noteType: 'dictation' | 'consultation') => {
+  const startNote = () => {
     setVisible(false);
-    if (noteType === 'consultation') {
-      navigation.navigate('Consent', { noteType });
-    } else {
-      navigation.navigate('Recording', { noteType });
-    }
+    navigation.navigate('Recording');
   };
 
   return (
@@ -29,29 +25,18 @@ export function NewNoteModal() {
       <View style={styles.header}>
         <Text style={[typography.title, { color: colors.text }]}>Start New Note</Text>
         <Text style={[typography.body, { color: colors.muted }]}>
-          Choose the note format that best fits the encounter.
+          Dictate a note and MedScribe will turn it into clean text.
         </Text>
       </View>
 
-      <Pressable onPress={() => startNote('dictation')} >
+      <Pressable onPress={startNote} >
         <Card style={styles.target}>
           <Text style={styles.targetIcon}>🎙️</Text>
           <View style={{ flex: 1 }}>
             <Text style={[typography.bodySemibold, { color: colors.text }]}>Quick Dictation</Text>
             <Text style={[typography.caption, { color: colors.muted }]}>
-              Summarize after the patient visit
+              Dictate after the visit, get a clean note
             </Text>
-          </View>
-          <Text style={[typography.title, { color: colors.muted }]}>›</Text>
-        </Card>
-      </Pressable>
-
-      <Pressable onPress={() => startNote('consultation')} >
-        <Card style={styles.target}>
-          <Text style={styles.targetIcon}>🔴</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[typography.bodySemibold, { color: colors.text }]}>Record Consultation</Text>
-            <Text style={[typography.caption, { color: colors.muted }]}>Capture the live visit directly</Text>
           </View>
           <Text style={[typography.title, { color: colors.muted }]}>›</Text>
         </Card>

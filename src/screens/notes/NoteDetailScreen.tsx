@@ -13,13 +13,6 @@ import type { NotesStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'NoteDetail'>;
 
-const sections: { key: 'subjective' | 'objective' | 'assessment' | 'plan'; title: string }[] = [
-  { key: 'subjective', title: 'Subjective' },
-  { key: 'objective', title: 'Objective' },
-  { key: 'assessment', title: 'Assessment' },
-  { key: 'plan', title: 'Plan' },
-];
-
 export function NoteDetailScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { id } = route.params;
@@ -74,16 +67,11 @@ export function NoteDetailScreen({ navigation, route }: Props) {
         </Text>
         <Text style={[typography.body, { color: colors.muted }]}>{metaBits.join(' · ') || 'No patient details'}</Text>
 
-        {sections.map((section) => (
-          <Card key={section.key} style={styles.sectionCard}>
-            <Text style={[typography.bodySemibold, { color: colors.primary, marginBottom: spacing.xs }]}>
-              {section.title}
-            </Text>
-            <Text style={[typography.body, { color: colors.text }]}>
-              {note[section.key] ?? '—'}
-            </Text>
-          </Card>
-        ))}
+        <Card style={styles.sectionCard}>
+          <Text style={[typography.body, { color: colors.text }]}>
+            {note.note_text ?? '—'}
+          </Text>
+        </Card>
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 12) }]}>

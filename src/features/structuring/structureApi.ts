@@ -1,24 +1,19 @@
 import { supabase } from '../../lib/supabase';
 
-export interface StructureRequest {
+export interface CleanupRequest {
   transcript: string;
-  note_type: 'dictation' | 'consultation';
 }
 
-export interface StructureResponse {
-  subjective: string;
-  objective: string;
-  assessment: string;
-  plan: string;
-  chief_complaint_suggestion: string;
+export interface CleanupResponse {
+  note_text: string;
   low_confidence_spans: string[];
 }
 
-export async function structureNote(input: StructureRequest): Promise<StructureResponse> {
-  const { data, error } = await supabase.functions.invoke<StructureResponse>('structure-note', {
+export async function cleanupTranscript(input: CleanupRequest): Promise<CleanupResponse> {
+  const { data, error } = await supabase.functions.invoke<CleanupResponse>('structure-note', {
     body: input,
   });
   if (error) throw error;
-  if (!data) throw new Error('Structuring returned an empty response.');
+  if (!data) throw new Error('Cleanup returned an empty response.');
   return data;
 }

@@ -31,7 +31,7 @@ function formatDate(iso: string): string {
 
 function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
   const title = note.patient_name ?? 'Untitled note';
-  const snippet = note.raw_transcript ?? note.chief_complaint ?? note.subjective ?? '';
+  const snippet = note.note_text ?? note.raw_transcript ?? '';
   return (
     <Pressable onPress={onPress}>
       <Card style={styles.noteCard}>
@@ -46,7 +46,6 @@ function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
         </Text>
         <View style={styles.cardFooter}>
           <Text style={[typography.caption, { color: colors.muted }]}>{formatDate(note.visit_date)}</Text>
-          <Badge label={note.note_type === 'dictation' ? 'Dictation' : 'Consultation'} variant="neutral" />
         </View>
       </Card>
     </Pressable>

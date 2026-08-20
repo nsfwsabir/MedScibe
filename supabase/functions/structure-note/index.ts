@@ -1,14 +1,9 @@
-export interface StructureRequest {
+export interface CleanupRequest {
   transcript: string;
-  note_type: 'dictation' | 'consultation';
 }
 
-export interface StructureResponse {
-  subjective: string;
-  objective: string;
-  assessment: string;
-  plan: string;
-  chief_complaint_suggestion: string;
+export interface CleanupResponse {
+  note_text: string;
   low_confidence_spans: string[];
 }
 
@@ -20,23 +15,20 @@ const CORS_HEADERS = {
 
 const MODEL = 'openai/gpt-oss-120b';
 
-export const SYSTEM_PROMPT = `You are a medical scribe assistant. You convert raw speech-to-text transcripts of doctor-patient encounters into structured SOAP (Subjective, Objective, Assessment, Plan) notes.
+export const SYSTEM_PROMPT = `You are a medical dictation cleanup assistant. A doctor dictated a clinical note and it was transcribed by speech-to-text. Your job is to turn the raw transcript into a clean, well-written clinical note.
 
 STRICT RULES:
-1. REORGANIZE AND SUMMARIZE ONLY. Every clinical detail in the output MUST come from the transcript. NEVER add a symptom, sign, drug, dose, diagnosis, lab result, or plan that was not stated in the transcript.
-2. If the transcript is ambiguous or unclear about a clinical detail, do NOT guess. Leave the relevant section as a faithful, minimal summary of what was said.
-3. If a dose, frequency, or other clinical detail is stated with uncertainty (e.g. "I think", "not sure"), never present it as a fact — either omit it or hedge it with the same uncertainty (e.g. "as indicated on the bottle", "reportedly").
-3. Any phrase or span you are unsure about (inaudible, garbled, unclear) goes into "low_confidence_spans" as an array of the exact unclear phrases, verbatim.
-4. Write in plain clinical English. Keep each section concise but complete. Use "Patient" as the subject. Do not invent patient names, ages, or identities.
-5. If the transcript is empty or contains no clinical content, return all sections as empty strings and an empty low_confidence_spans array.
+1. REORGANIZE AND CLEAN ONLY. Every clinical detail in the output MUST come from the transcript. NEVER add a symptom, sign, drug, dose, diagnosis, lab result, or plan that was not stated in the transcript.
+2. Keep the doctor's clinical wording and structure. Fix transcription artifacts: run-on sentences, filler words ("um", "uh", "okay so", "so yeah"), missing punctuation, and obvious mis-transcriptions you are confident about (e.g. "amoxicillin" vs "a mocks a sylin").
+3. Remove conversational filler and instructions to the machine (e.g. "new paragraph", "period", "comma", "next line").
+4. Do NOT reorganize into sections or headings (no "Subjective:", "Assessment:", "Plan:" labels). Return a single flowing clinical note.
+5. If a phrase is inaudible or you are NOT confident what was said, do NOT guess — keep it verbatim as it appears and add the exact phrase to "low_confidence_spans".
+6. If a dose, frequency, or other clinical detail is stated with uncertainty (e.g. "I think", "not sure"), never present it as a fact — either omit it or hedge it with the same uncertainty (e.g. "as indicated on the bottle", "reportedly").
+7. If the transcript is empty or contains no clinical content, return an empty note_text and an empty low_confidence_spans array.
 
 Respond ONLY with a JSON object, no markdown, no commentary. Shape:
 {
-  "subjective": "string",
-  "objective": "string",
-  "assessment": "string",
-  "plan": "string",
-  "chief_complaint_suggestion": "string",
+  "note_text": "string",
   "low_confidence_spans": ["string"]
 }`;
 
@@ -54,7 +46,7 @@ export function parseJsonResponse(text: string): unknown {
   }
 }
 
-export function validateStructure(data: unknown): StructureResponse {
+export function validateCleanup(data: unknown): CleanupResponse {
   if (typeof data !== 'object' || data === null) {
     throw new Error('LLM output is not an object');
   }
@@ -62,19 +54,13 @@ export function validateStructure(data: unknown): StructureResponse {
   const spanArray = Array.isArray(obj.low_confidence_spans)
     ? obj.low_confidence_spans.filter((s): s is string => typeof s === 'string')
     : [];
-  const out: StructureResponse = {
-    subjective: typeof obj.subjective === 'string' ? obj.subjective : '',
-    objective: typeof obj.objective === 'string' ? obj.objective : '',
-    assessment: typeof obj.assessment === 'string' ? obj.assessment : '',
-    plan: typeof obj.plan === 'string' ? obj.plan : '',
-    chief_complaint_suggestion:
-      typeof obj.chief_complaint_suggestion === 'string' ? obj.chief_complaint_suggestion : '',
+  return {
+    note_text: typeof obj.note_text === 'string' ? obj.note_text : '',
     low_confidence_spans: spanArray,
   };
-  return out;
 }
 
-async function callGroq(apiKey: string, transcript: string, noteType: string): Promise<unknown> {
+async function callGroq(apiKey: string, transcript: string): Promise<unknown> {
   const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -87,7 +73,7 @@ async function callGroq(apiKey: string, transcript: string, noteType: string): P
         { role: 'system', content: SYSTEM_PROMPT },
         {
           role: 'user',
-          content: `note_type: ${noteType}\n\nTranscript:\n"""\n${transcript}\n"""`,
+          content: `Transcript:\n"""\n${transcript}\n"""`,
         },
       ],
       temperature: 0.2,
@@ -137,24 +123,21 @@ export async function handleRequest(req: Request): Promise<Response> {
     return buildRequestError('Invalid JSON body');
   }
 
-  const { transcript, note_type } = (body ?? {}) as Partial<StructureRequest>;
+  const { transcript } = (body ?? {}) as Partial<CleanupRequest>;
   if (typeof transcript !== 'string' || transcript.trim().length === 0) {
     return buildRequestError('"transcript" must be a non-empty string');
   }
-  if (note_type !== 'dictation' && note_type !== 'consultation') {
-    return buildRequestError('"note_type" must be "dictation" or "consultation"');
-  }
 
   try {
-    const raw = await callGroq(apiKey, transcript, note_type);
-    const structured = validateStructure(raw);
-    return new Response(JSON.stringify(structured), {
+    const raw = await callGroq(apiKey, transcript);
+    const cleaned = validateCleanup(raw);
+    return new Response(JSON.stringify(cleaned), {
       status: 200,
       headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Structuring failed';
-    console.error('[structure-note]', message);
+    const message = err instanceof Error ? err.message : 'Cleanup failed';
+    console.error('[cleanup-note]', message);
     return buildRequestError(message, 502);
   }
 }

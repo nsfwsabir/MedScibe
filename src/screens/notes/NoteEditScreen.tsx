@@ -14,13 +14,6 @@ import type { NotesStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'NoteEdit'>;
 
-const soapFields: { key: 'subjective' | 'objective' | 'assessment' | 'plan'; label: string }[] = [
-  { key: 'subjective', label: 'Subjective (S)' },
-  { key: 'objective', label: 'Objective (O)' },
-  { key: 'assessment', label: 'Assessment (A)' },
-  { key: 'plan', label: 'Plan (P)' },
-];
-
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -89,13 +82,7 @@ function NoteEditor({
   const [patientAge, setPatientAge] = useState(note?.patient_age != null ? String(note.patient_age) : '');
   const [patientSex, setPatientSex] = useState(note?.patient_sex ?? '');
   const [visitDate, setVisitDate] = useState(note?.visit_date ?? '');
-  const [chiefComplaint, setChiefComplaint] = useState(note?.chief_complaint ?? '');
-  const [soap, setSoap] = useState<Record<string, string>>({
-    subjective: note?.subjective ?? '',
-    objective: note?.objective ?? '',
-    assessment: note?.assessment ?? '',
-    plan: note?.plan ?? '',
-  });
+  const [noteText, setNoteText] = useState(note?.note_text ?? note?.raw_transcript ?? '');
   const [saving, setSaving] = useState(false);
 
   const persist = async (finalize: boolean) => {
@@ -110,11 +97,7 @@ function NoteEditor({
           patient_age: age && !Number.isNaN(age) ? age : null,
           patient_sex: patientSex || null,
           visit_date: visitDate || undefined,
-          chief_complaint: chiefComplaint || null,
-          subjective: soap.subjective || null,
-          objective: soap.objective || null,
-          assessment: soap.assessment || null,
-          plan: soap.plan || null,
+          note_text: noteText || null,
           status: finalize ? 'finalized' : 'draft',
         },
       });
@@ -140,7 +123,7 @@ function NoteEditor({
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
           <Text style={[typography.title, { color: colors.text }]}>←</Text>
         </Pressable>
-        <Text style={[typography.title, { color: colors.text }]}>Edit Draft Note</Text>
+        <Text style={[typography.title, { color: colors.text }]}>Edit Note</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -173,34 +156,21 @@ function NoteEditor({
 
         <Card style={styles.soapCard}>
           <Text style={[typography.bodySemibold, { color: colors.primary, marginBottom: spacing.sm }]}>
-            Chief Complaint
+            Note
           </Text>
           <TextInput
-            placeholder="e.g. persistent dry cough"
-            value={chiefComplaint}
-            onChangeText={setChiefComplaint}
+            placeholder="Your dictation appears here..."
+            multiline
+            value={noteText}
+            onChangeText={setNoteText}
+            style={styles.noteInput}
           />
         </Card>
 
-        {soapFields.map((field) => (
-          <Card key={field.key} style={styles.soapCard}>
-            <Text style={[typography.bodySemibold, { color: colors.primary, marginBottom: spacing.sm }]}>
-              {field.label}
-            </Text>
-            <TextInput
-              placeholder="Type or edit content..."
-              multiline
-              value={soap[field.key]}
-              onChangeText={(t) => setSoap((prev) => ({ ...prev, [field.key]: t }))}
-              style={styles.soapInput}
-            />
-          </Card>
-        ))}
-
-        {note.raw_transcript ? (
+        {note.raw_transcript && note.raw_transcript !== noteText ? (
           <Card style={styles.soapCard}>
             <Text style={[typography.bodySemibold, { color: colors.muted, marginBottom: spacing.sm }]}>
-              Transcript
+              Original transcript
             </Text>
             {renderTranscript(note.raw_transcript, note.low_confidence_spans)}
             {note.low_confidence_spans && note.low_confidence_spans.length > 0 ? (
@@ -260,8 +230,8 @@ const styles = StyleSheet.create({
   soapCard: {
     padding: spacing.md,
   },
-  soapInput: {
-    minHeight: 120,
+  noteInput: {
+    minHeight: 160,
     textAlignVertical: 'top',
   },
   transcriptText: {
