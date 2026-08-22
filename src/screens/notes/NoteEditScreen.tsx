@@ -15,6 +15,7 @@ import { typography } from '../../theme/typography';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/TextInput';
+import { RichTextInput } from '../../components/ui/RichTextInput';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
@@ -267,9 +268,8 @@ function NoteEditor({
               <Text style={[typography.label, styles.macrosLabel]}>MACROS</Text>
             </Pressable>
           </View>
-          <TextInput
+          <RichTextInput
             placeholder="Your dictation appears here..."
-            multiline
             value={noteText}
             onChangeText={handleChangeText}
             onSelectionChange={handleSelectionChange}
