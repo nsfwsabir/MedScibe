@@ -57,8 +57,6 @@ export function RichTextInput({ value, placeholder, style, ...rest }: Props) {
         ) : (
           <MirrorText value={value} />
         )}
-        {/* Trailing newline gives the caret room on the last line. */}
-        {'\n'}
       </ScrollView>
       <RNTextInput
         {...rest}
@@ -97,6 +95,8 @@ function MirrorText({ value }: { value: string }) {
           {'\n'}
         </React.Fragment>
       ))}
+      {/* Trailing newline gives the caret room on the last line. */}
+      {'\n'}
     </Text>
   );
 }
