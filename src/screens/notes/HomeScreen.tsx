@@ -9,6 +9,7 @@ import { Badge } from '../../components/ui/Badge';
 import { TextInput } from '../../components/ui/TextInput';
 import { useNotes } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
+import { plainText } from '../../features/notes/formatting';
 import { useAuthStore } from '../../features/auth/authStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
@@ -31,7 +32,7 @@ function formatDate(iso: string): string {
 
 function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
   const title = note.patient_name ?? 'Untitled note';
-  const snippet = note.note_text ?? note.raw_transcript ?? '';
+  const snippet = plainText(note.note_text ?? note.raw_transcript ?? '');
   return (
     <Pressable onPress={onPress}>
       <Card style={styles.noteCard}>

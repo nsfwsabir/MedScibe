@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 import { colors, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 import { Card } from '../../components/ui/Card';
@@ -8,6 +9,9 @@ import { Button } from '../../components/ui/Button';
 import { transcriber } from '../../features/transcription';
 import { useCreateNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { cleanupTranscript } from '../../features/structuring/structureApi';
+import { macrosKeys } from '../../features/macros/macrosQueries';
+import { fetchMacros } from '../../features/macros/macrosApi';
+import { expandMacros } from '../../features/macros/expansion';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -37,6 +41,7 @@ function StepRow({ label, state }: { label: string; state: 'active' | 'done' | '
 
 export function ProcessingScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { durationSeconds, audioUri } = route.params;
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
@@ -64,10 +69,15 @@ export function ProcessingScreen({ navigation, route }: Props) {
     setStep('cleaning');
     setError(null);
     const cleaned = await cleanupTranscript({ transcript: transcriptRef.current! });
+    // Auto-expand quick macros in the cleaned dictation (Augnito-style).
+    const macroList = await queryClient.ensureQueryData({
+      queryKey: macrosKeys.all,
+      queryFn: fetchMacros,
+    });
     await updateNote.mutateAsync({
       id: noteIdRef.current!,
       patch: {
-        note_text: cleaned.note_text || null,
+        note_text: expandMacros(cleaned.note_text || '', macroList) || null,
         low_confidence_spans:
           cleaned.low_confidence_spans.length > 0 ? cleaned.low_confidence_spans : null,
       },

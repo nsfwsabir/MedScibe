@@ -7,6 +7,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { useNote, useSoftDeleteNote } from '../../features/notes/notesQueries';
+import { RichText } from '../../features/notes/formatting';
 import { useAuthStore } from '../../features/auth/authStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
@@ -68,9 +69,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
         <Text style={[typography.body, { color: colors.muted }]}>{metaBits.join(' · ') || 'No patient details'}</Text>
 
         <Card style={styles.sectionCard}>
-          <Text style={[typography.body, { color: colors.text }]}>
-            {note.note_text ?? '—'}
-          </Text>
+          <RichText value={note.note_text ?? '—'} baseStyle={{ color: colors.text }} />
         </Card>
       </ScrollView>
 

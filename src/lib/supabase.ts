@@ -4,6 +4,30 @@ import { env } from './env';
 export type Database = {
   public: {
     Tables: {
+      note_macros: {
+        Row: {
+          id: string;
+          author_id: string;
+          shortcut: string;
+          expansion: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          author_id?: string;
+          shortcut: string;
+          expansion: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          author_id?: string;
+          shortcut?: string;
+          expansion?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       notes: {
         Row: {
           id: string;
