@@ -10,9 +10,18 @@ export type InlineEditorHandle = {
   focus: () => void;
 };
 
+export type FormatState = {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  h1: boolean;
+  h2: boolean;
+};
+
 type Props = {
   value: string; // markdown
   onChange: (markdown: string) => void;
+  onFormatStateChange?: (state: FormatState) => void;
   macros?: Macro[];
   placeholder?: string;
 };
@@ -81,23 +90,36 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
   }
   function stripTags(s) { return s.replace(/<[^>]*>/g, ''); }
 
+  function postFormatState() {
+    try {
+      const state = {
+        bold: document.queryCommandState('bold'),
+        italic: document.queryCommandState('italic'),
+        underline: document.queryCommandState('underline'),
+        h1: document.queryCommandValue('formatBlock') === 'h1',
+        h2: document.queryCommandValue('formatBlock') === 'h2',
+      };
+      window.ReactNativeWebView.postMessage(JSON.stringify({type:'formatState', state: state}));
+    } catch {}
+  }
   function notifyChange() {
     const html = editor.innerHTML;
     if (html === lastHtml) return;
     lastHtml = html;
     const md = htmlToMarkdown(html);
     window.ReactNativeWebView.postMessage(JSON.stringify({type:'change', markdown: md, html: html}));
-    // report height for auto-resize
     const h = Math.max(180, document.documentElement.scrollHeight);
     window.ReactNativeWebView.postMessage(JSON.stringify({type:'height', height: h}));
+    postFormatState();
   }
 
   editor.addEventListener('input', () => {
-    // Macro live expansion on space
     handleMacroOnSpace();
     notifyChange();
   });
-  editor.addEventListener('keyup', notifyChange);
+  editor.addEventListener('keyup', () => { notifyChange(); postFormatState(); });
+  editor.addEventListener('mouseup', postFormatState);
+  document.addEventListener('selectionchange', postFormatState);
   editor.addEventListener('paste', () => setTimeout(notifyChange, 50));
 
   function handleMacroOnSpace() {
@@ -179,12 +201,9 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
       const tag = action.toUpperCase();
       const block = currentBlock();
       if (block && block.tagName === tag) {
-        // toggle off -> back to normal paragraph/div
         document.execCommand('formatBlock', false, 'p');
-        // unwrap p/div extra styling if needed - convert to div for clean markdown
         const cur = currentBlock();
         if (cur && cur.tagName === 'P') {
-          // turn <p> into <div> for our markdown model
           const div = document.createElement('div');
           div.innerHTML = cur.innerHTML;
           cur.replaceWith(div);
@@ -199,7 +218,7 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
         document.execCommand('formatBlock', false, tag.toLowerCase());
       }
     }
-    setTimeout(notifyChange, 50);
+    setTimeout(() => { notifyChange(); postFormatState(); }, 50);
   };
   window.getEditorContent = function() { return editor.innerHTML; };
 
@@ -229,7 +248,7 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
 </html>`;
 
 export const InlineEditor = forwardRef<InlineEditorHandle, Props>(function InlineEditor(
-  { value, onChange, macros, placeholder = 'Your dictation appears here...' },
+  { value, onChange, onFormatStateChange, macros, placeholder = 'Your dictation appears here...' },
   ref,
 ) {
   const webRef = useRef<any>(null);
@@ -277,10 +296,12 @@ export const InlineEditor = forwardRef<InlineEditorHandle, Props>(function Inlin
         } else if (data.type === 'height') {
           const h = Number(data.height);
           if (!isNaN(h) && h > 100 && h < 2000) setWebHeight(h);
+        } else if (data.type === 'formatState' && onFormatStateChange) {
+          onFormatStateChange(data.state as FormatState);
         }
       } catch {}
     },
-    [value, onChange],
+    [value, onChange, onFormatStateChange],
   );
 
   const onLoadEnd = useCallback(() => {

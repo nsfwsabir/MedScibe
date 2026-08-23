@@ -15,13 +15,10 @@ import { typography } from '../../theme/typography';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/TextInput';
-import { BottomSheet } from '../../components/ui/BottomSheet';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
-import { RichText } from '../../features/notes/formatting';
-import { InlineEditor, InlineEditorHandle } from '../../components/ui/InlineEditor';
-import { useMacros, useCreateMacro, useDeleteMacro } from '../../features/macros/macrosQueries';
-import { normalizeShortcut, validateMacro } from '../../features/macros/macrosApi';
+import { InlineEditor, InlineEditorHandle, FormatState } from '../../components/ui/InlineEditor';
+import { useMacros } from '../../features/macros/macrosQueries';
 import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -102,37 +99,16 @@ function NoteEditor({
 
   const editorRef = useRef<InlineEditorHandle>(null);
   const { data: macros } = useMacros();
-  const [macrosOpen, setMacrosOpen] = useState(false);
-  const [macroShortcut, setMacroShortcut] = useState('');
-  const [macroExpansion, setMacroExpansion] = useState('');
-  const [macroError, setMacroError] = useState<string | null>(null);
-  const createMacroM = useCreateMacro();
-  const deleteMacroM = useDeleteMacro();
+  const [formatState, setFormatState] = useState<FormatState>({
+    bold: false,
+    italic: false,
+    underline: false,
+    h1: false,
+    h2: false,
+  });
 
   const format = (action: 'bold' | 'italic' | 'underline' | 'h1' | 'h2') => {
     editorRef.current?.applyFormat(action);
-  };
-
-  const handleAddMacro = async () => {
-    const validation = validateMacro({ shortcut: macroShortcut, expansion: macroExpansion });
-    if (validation) {
-      setMacroError(validation);
-      return;
-    }
-    setMacroError(null);
-    try {
-      await createMacroM.mutateAsync({
-        shortcut: normalizeShortcut(macroShortcut),
-        expansion: macroExpansion,
-      });
-      setMacroShortcut('');
-      setMacroExpansion('');
-    } catch (e) {
-      const message = e instanceof Error ? e.message : 'Could not save the macro.';
-      setMacroError(
-        /duplicate|unique/i.test(message) ? 'That shortcut already exists.' : message,
-      );
-    }
   };
 
   const persist = async (finalize: boolean) => {
@@ -178,15 +154,24 @@ function NoteEditor({
       </View>
 
       <View style={styles.toolbarFixed}>
-        {TOOLBAR_ACTIONS.map(({ action, label, style }) => (
-          <Pressable key={action} onPress={() => format(action)} style={styles.toolButton} hitSlop={4}>
-            <Text style={[typography.bodySemibold, styles.toolLabel, style]}>{label}</Text>
-          </Pressable>
-        ))}
-        <View style={styles.toolbarDivider} />
-        <Pressable onPress={() => setMacrosOpen(true)} style={styles.macrosButton} hitSlop={4}>
-          <Text style={[typography.label, styles.macrosLabel]}>MACROS</Text>
-        </Pressable>
+        {TOOLBAR_ACTIONS.map(({ action, label, style }) => {
+          const active =
+            (action === 'bold' && formatState.bold) ||
+            (action === 'italic' && formatState.italic) ||
+            (action === 'underline' && formatState.underline) ||
+            (action === 'h1' && formatState.h1) ||
+            (action === 'h2' && formatState.h2);
+          return (
+            <Pressable
+              key={action}
+              onPress={() => format(action)}
+              style={[styles.toolButton, active && styles.toolButtonActive]}
+              hitSlop={4}
+            >
+              <Text style={[typography.bodySemibold, styles.toolLabel, style, active && styles.toolLabelActive]}>{label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -224,6 +209,7 @@ function NoteEditor({
             ref={editorRef}
             value={noteText}
             onChange={setNoteText}
+            onFormatStateChange={setFormatState}
             macros={macros ?? []}
             placeholder="Your dictation appears here..."
           />
@@ -246,68 +232,6 @@ function NoteEditor({
           </Card>
         ) : null}
       </ScrollView>
-
-      <BottomSheet visible={macrosOpen} onClose={() => setMacrosOpen(false)}>
-        <Text style={[typography.title, { color: colors.text }]}>Quick Macros</Text>
-        <Text style={[typography.caption, { color: colors.muted }]}>
-          A macro expands into your full text the moment you type its shortcut and a space — while
-          editing here or right after dictation is cleaned up.
-        </Text>
-
-        {(macros ?? []).length > 0 ? (
-          <ScrollView style={styles.macroList} nestedScrollEnabled>
-            {(macros ?? []).map((m) => (
-              <View key={m.id} style={styles.macroRow}>
-                <View style={styles.macroShortcutWrap}>
-                  <Text style={[typography.bodySemibold, styles.macroShortcut]} numberOfLines={1}>
-                    {m.shortcut}
-                  </Text>
-                </View>
-                <RichText value={m.expansion} baseStyle={styles.macroExpansion} />
-                <Pressable
-                  hitSlop={8}
-                  disabled={deleteMacroM.isPending}
-                  onPress={() => deleteMacroM.mutate(m.id)}
-                >
-                  <Text style={[typography.bodyMedium, styles.macroDelete]}>✕</Text>
-                </Pressable>
-              </View>
-            ))}
-          </ScrollView>
-        ) : (
-          <Text style={[typography.body, styles.macroEmpty]}>
-            No macros yet. Add one below — for example “fup2w” → “Follow up in two weeks”.
-          </Text>
-        )}
-
-        <View style={styles.macroForm}>
-          <TextInput
-            label="SHORTCUT"
-            placeholder="fup2w"
-            autoCapitalize="none"
-            autoCorrect={false}
-            value={macroShortcut}
-            onChangeText={(t) => setMacroShortcut(t.toLowerCase())}
-            style={{ flex: 1 }}
-          />
-          <TextInput
-            label="EXPANDS TO"
-            placeholder="Follow up in two weeks"
-            value={macroExpansion}
-            onChangeText={setMacroExpansion}
-            style={{ flex: 2 }}
-          />
-        </View>
-        {macroError ? (
-          <Text style={[typography.caption, { color: colors.error }]}>{macroError}</Text>
-        ) : null}
-        <Button
-          label="Add Macro"
-          variant="secondary"
-          onPress={handleAddMacro}
-          disabled={createMacroM.isPending}
-        />
-      </BottomSheet>
 
       <View style={[styles.actions, { paddingBottom: Math.max(insetsBottom, 12) }]}>
         <Button label="Finalize Note" onPress={() => persist(true)} disabled={saving} style={{ flex: 1 }} />
@@ -383,8 +307,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  toolButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
   toolLabel: {
     color: colors.primary,
+  },
+  toolLabelActive: {
+    color: colors.white,
   },
   toolBold: {
     fontWeight: '800',

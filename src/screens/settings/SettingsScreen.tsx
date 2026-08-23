@@ -1,13 +1,17 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, spacing } from '../../theme/tokens';
+import { colors, radius, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 import { Card } from '../../components/ui/Card';
 import { Chip } from '../../components/ui/Chip';
 import { Button } from '../../components/ui/Button';
+import { TextInput } from '../../components/ui/TextInput';
 import { useAuthStore } from '../../features/auth/authStore';
 import { useSettingsStore, RetentionDays } from '../../features/settings/settingsStore';
+import { useMacros, useCreateMacro, useDeleteMacro } from '../../features/macros/macrosQueries';
+import { normalizeShortcut, validateMacro } from '../../features/macros/macrosApi';
+import { RichText } from '../../features/notes/formatting';
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -15,6 +19,32 @@ export function SettingsScreen() {
   const signOut = useAuthStore((s) => s.signOut);
   const { retainOriginalAudio, retentionDays, setRetainOriginalAudio, setRetentionDays } =
     useSettingsStore();
+  const { data: macros } = useMacros();
+  const [macroShortcut, setMacroShortcut] = useState('');
+  const [macroExpansion, setMacroExpansion] = useState('');
+  const [macroError, setMacroError] = useState<string | null>(null);
+  const createMacroM = useCreateMacro();
+  const deleteMacroM = useDeleteMacro();
+
+  const handleAddMacro = async () => {
+    const validation = validateMacro({ shortcut: macroShortcut, expansion: macroExpansion });
+    if (validation) {
+      setMacroError(validation);
+      return;
+    }
+    setMacroError(null);
+    try {
+      await createMacroM.mutateAsync({
+        shortcut: normalizeShortcut(macroShortcut),
+        expansion: macroExpansion,
+      });
+      setMacroShortcut('');
+      setMacroExpansion('');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Could not save the macro.';
+      setMacroError(/duplicate|unique/i.test(message) ? 'That shortcut already exists.' : message);
+    }
+  };
 
   const name = user?.email?.split('@')[0] ?? 'Doctor';
   const displayName = name
@@ -65,6 +95,58 @@ export function SettingsScreen() {
             />
           ))}
         </View>
+      </Card>
+
+      <Card style={styles.section}>
+        <Text style={[typography.bodySemibold, { color: colors.text }]}>Quick Macros</Text>
+        <Text style={[typography.caption, { color: colors.muted }]}>
+          Type a shortcut and a space in the editor to expand it. Also auto-expands in cleaned dictation.
+        </Text>
+
+        {(macros ?? []).length > 0 ? (
+          <View style={styles.macroList}>
+            {(macros ?? []).map((m) => (
+              <View key={m.id} style={styles.macroRow}>
+                <View style={styles.macroShortcutWrap}>
+                  <Text style={[typography.bodySemibold, styles.macroShortcut]} numberOfLines={1}>
+                    {m.shortcut}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <RichText value={m.expansion} baseStyle={{ color: colors.text }} />
+                </View>
+                <Pressable hitSlop={8} disabled={deleteMacroM.isPending} onPress={() => deleteMacroM.mutate(m.id)}>
+                  <Text style={[typography.bodyMedium, styles.macroDelete]}>✕</Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={[typography.body, { color: colors.muted }]}>
+            No macros yet. Add one below — for example “fup2w” → “Follow up in two weeks”.
+          </Text>
+        )}
+
+        <View style={styles.macroForm}>
+          <TextInput
+            label="SHORTCUT"
+            placeholder="fup2w"
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={macroShortcut}
+            onChangeText={(t) => setMacroShortcut(t.toLowerCase())}
+            style={{ flex: 1 }}
+          />
+          <TextInput
+            label="EXPANDS TO"
+            placeholder="Follow up in two weeks"
+            value={macroExpansion}
+            onChangeText={setMacroExpansion}
+            style={{ flex: 2 }}
+          />
+        </View>
+        {macroError ? <Text style={[typography.caption, { color: colors.error }]}>{macroError}</Text> : null}
+        <Button label="Add Macro" variant="secondary" onPress={handleAddMacro} disabled={createMacroM.isPending} />
       </Card>
 
       <Card style={styles.section}>
@@ -134,5 +216,35 @@ const styles = StyleSheet.create({
   },
   legalRow: {
     marginTop: spacing.sm,
+  },
+  macroList: {
+    gap: spacing.xs,
+  },
+  macroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  macroShortcutWrap: {
+    minWidth: 72,
+    maxWidth: 110,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    backgroundColor: colors.background,
+  },
+  macroShortcut: {
+    color: colors.primary,
+  },
+  macroDelete: {
+    color: colors.muted,
+    paddingHorizontal: spacing.xs,
+  },
+  macroForm: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
 });
