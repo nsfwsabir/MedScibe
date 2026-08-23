@@ -93,12 +93,13 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
 
   function postFormatState() {
     try {
+      const block = getCurrentBlock();
       const state = {
         bold: document.queryCommandState('bold'),
         italic: document.queryCommandState('italic'),
         underline: document.queryCommandState('underline'),
-        h1: document.queryCommandValue('formatBlock') === 'h1',
-        h2: document.queryCommandValue('formatBlock') === 'h2',
+        h1: block ? block.tagName === 'H1' : false,
+        h2: block ? block.tagName === 'H2' : false,
       };
       window.ReactNativeWebView.postMessage(JSON.stringify({type:'formatState', state: state}));
     } catch {}
@@ -185,7 +186,7 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
     window.ReactNativeWebView.postMessage(JSON.stringify({type:'height', height: h}));
   };
   window.setEditorMacros = function(list) { macros = list || []; };
-  function currentBlock() {
+  function getCurrentBlock() {
     const sel = window.getSelection();
     if (!sel.rangeCount) return null;
     let n = sel.getRangeAt(0).startContainer;
@@ -193,32 +194,66 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
     while (n && n !== editor && !/^(H1|H2|DIV|P|LI)$/i.test(n.tagName)) n = n.parentElement;
     return (n && n !== editor) ? n : null;
   }
+  function currentBlock() { return getCurrentBlock(); }
+  function toggleHeading(targetTag) {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return;
+    // Handle multi-block selection: collect all blocks intersecting selection
+    const range = sel.getRangeAt(0);
+    let blocks = [];
+    if (!range.collapsed) {
+      // Find all blocks in selection
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_ELEMENT, {
+        acceptNode: function(node) {
+          return /^(DIV|P|H1|H2)$/i.test(node.tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
+      });
+      let node;
+      while (node = walker.nextNode()) {
+        if (range.intersectsNode(node)) blocks.push(node);
+      }
+      if (blocks.length === 0) {
+        const b = getCurrentBlock();
+        if (b) blocks = [b];
+      }
+    } else {
+      const b = getCurrentBlock();
+      if (b) blocks = [b];
+      else {
+        // No block (empty editor or text directly under editor) -> use execCommand fallback
+        document.execCommand('formatBlock', false, targetTag.toLowerCase());
+        return;
+      }
+    }
+    // If every selected block is already this heading, toggle off to div
+    const allAreTarget = blocks.every(b => b.tagName === targetTag.toUpperCase());
+    const newTag = allAreTarget ? 'DIV' : targetTag.toUpperCase();
+    // Replace from last to first to keep offsets stable
+    for (let i = blocks.length - 1; i >= 0; i--) {
+      const block = blocks[i];
+      if (block.tagName === newTag) continue;
+      const replacement = document.createElement(newTag.toLowerCase());
+      replacement.innerHTML = block.innerHTML || '<br>';
+      block.replaceWith(replacement);
+      blocks[i] = replacement;
+    }
+    // Restore caret to end of last affected block
+    try {
+      const last = blocks[blocks.length - 1];
+      const r = document.createRange();
+      r.selectNodeContents(last);
+      r.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    } catch {}
+  }
   window.applyFormat = function(action) {
     editor.focus();
     if (action === 'bold') document.execCommand('bold', false, null);
     else if (action === 'italic') document.execCommand('italic', false, null);
     else if (action === 'underline') document.execCommand('underline', false, null);
-    else if (action === 'h1' || action === 'h2') {
-      const tag = action.toUpperCase();
-      const block = currentBlock();
-      if (block && block.tagName === tag) {
-        document.execCommand('formatBlock', false, 'p');
-        const cur = currentBlock();
-        if (cur && cur.tagName === 'P') {
-          const div = document.createElement('div');
-          div.innerHTML = cur.innerHTML;
-          cur.replaceWith(div);
-          const r = document.createRange();
-          r.selectNodeContents(div);
-          r.collapse(false);
-          const s = window.getSelection();
-          s.removeAllRanges();
-          s.addRange(r);
-        }
-      } else {
-        document.execCommand('formatBlock', false, tag.toLowerCase());
-      }
-    }
+    else if (action === 'h1') toggleHeading('H1');
+    else if (action === 'h2') toggleHeading('H2');
     setTimeout(() => { notifyChange(); postFormatState(); }, 50);
   };
   window.getEditorContent = function() { return editor.innerHTML; };
