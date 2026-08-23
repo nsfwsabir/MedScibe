@@ -19,7 +19,7 @@ export type FormatState = {
 };
 
 type Props = {
-  value: string;
+  value: string; // markdown
   onChange: (markdown: string) => void;
   onFormatStateChange?: (state: FormatState) => void;
   macros?: Macro[];
@@ -66,6 +66,7 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
 
   function htmlToMarkdown(html) {
     let md = html;
+    // Normalize
     md = md.replace(/<div><br><\\/div>/gi, '\\n');
     md = md.replace(/<div>/gi, '\\n');
     md = md.replace(/<\\/div>/gi, '');
@@ -129,25 +130,47 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
     if (!sel.rangeCount) return;
     const range = sel.getRangeAt(0);
     if (!range.collapsed) return;
+    // Get text before caret in current block
     const node = range.startContainer;
     let textBefore = '';
     if (node.nodeType === 3) {
       textBefore = node.textContent.slice(0, range.startOffset);
     } else {
+      // element node
       textBefore = node.textContent.slice(0, range.startOffset);
     }
+    // Find last word before caret
     const m = textBefore.match(/([A-Za-z0-9_]+)$/);
     if (!m) return;
     const word = m[1];
     const hit = macros.find(x => x.shortcut.toLowerCase() === word.toLowerCase());
     if (!hit) return;
+    // Check if next char is space (user just typed space)
+    // The input event already inserted the space, so word is before space
+    // Actually textBefore includes up to caret before space? On input after typing space, caret is after space
+    // So we need to look one char before
+    // Simplify: if word is followed by space in the full text, we already have it
+    // Instead, detect when textBefore ends with word + we just typed space is tricky
+    // Alternative: check if last typed char was space by looking at textBefore ending with word?
+    // For now, only expand if word is at end and user typed space will be handled by checking after space insertion
+    // We will expand when word is exactly at end before space was typed, and we are now after space
+    // So textBefore should be word, and the character before word is boundary
+    // Expand by replacing word with expansion
+    const text = editor.innerText || editor.textContent;
+    // Find word position and replace in DOM - simpler: use execCommand to replace
+    // Get current block text
+    const block = node.nodeType === 3 ? node.parentElement : node;
+    // Replace last occurrence of word with expansion
+    // Use selection to replace
     try {
+      // Move selection to cover the word
       const wordLen = word.length;
       range.setStart(node, range.startOffset - wordLen);
       range.setEnd(node, range.startOffset);
       range.deleteContents();
       const textNode = document.createTextNode(hit.expansion);
       range.insertNode(textNode);
+      // Move caret after expansion
       range.setStartAfter(textNode);
       range.setEndAfter(textNode);
       sel.removeAllRanges();
@@ -171,10 +194,7 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
     while (n && n !== editor && !/^(H1|H2|DIV|P|LI)$/i.test(n.tagName)) n = n.parentElement;
     return (n && n !== editor) ? n : null;
   }
-
-  // Heading: simple block-level toggle. For collapsed caret, split at caret so
-  // "text after cursor on this line" becomes heading (or back to normal if already heading).
-  // For highlighted text, the whole line(s) containing the selection become heading.
+  function currentBlock() { return getCurrentBlock(); }
   function toggleHeading(targetTag) {
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
@@ -182,70 +202,83 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
     const tagUpper = targetTag.toUpperCase();
     const tagLower = targetTag.toLowerCase();
 
-    // Highlighted: if selection is inside a single block and is a proper substring,
-    // split that block so only the highlighted text becomes a heading line.
+    // Highlighted text: make only the highlighted text a heading line (split the original line)
     if (!range.collapsed) {
-      const selectedText = range.toString();
-      if (selectedText && selectedText.trim()) {
-        let startBlock = range.startContainer;
-        if (startBlock.nodeType === 3) startBlock = startBlock.parentElement;
-        while (startBlock && startBlock !== editor && !/^(DIV|P|H1|H2)$/i.test(startBlock.tagName)) startBlock = startBlock.parentElement;
-        let endBlock = range.endContainer;
-        if (endBlock.nodeType === 3) endBlock = endBlock.parentElement;
-        while (endBlock && endBlock !== editor && !/^(DIV|P|H1|H2)$/i.test(endBlock.tagName)) endBlock = endBlock.parentElement;
-        if (startBlock && startBlock === endBlock) {
-          const blockText = startBlock.textContent || '';
-          if (selectedText.length > 0 && selectedText.length < blockText.length) {
-            try {
-              // Use ranges to split accurately, preserving inline formatting
-              const beforeRange = document.createRange();
-              beforeRange.setStart(startBlock, 0);
-              beforeRange.setEnd(range.startContainer, range.startOffset);
-              const afterRange = document.createRange();
-              afterRange.setStart(range.endContainer, range.endOffset);
-              afterRange.setEnd(startBlock, startBlock.childNodes.length);
-              const beforeFrag = beforeRange.cloneContents();
-              const selectedFrag = range.cloneContents();
-              const afterFrag = afterRange.cloneContents();
-              const frag = document.createDocumentFragment();
-              const hasBefore = beforeFrag.textContent && beforeFrag.textContent.trim().length > 0;
-              const hasAfter = afterFrag.textContent && afterFrag.textContent.trim().length > 0;
-              if (hasBefore) {
-                const beforeDiv = document.createElement('div');
-                beforeDiv.appendChild(beforeFrag);
-                frag.appendChild(beforeDiv);
-              }
-              // If the original line was already this heading, turn the selection back to normal
-              if (startBlock.tagName === tagUpper) {
-                const div = document.createElement('div');
-                div.appendChild(selectedFrag);
-                frag.appendChild(div);
-              } else {
-                const heading = document.createElement(tagLower);
-                heading.appendChild(selectedFrag);
-                frag.appendChild(heading);
-              }
+      const selText = range.toString();
+      if (!selText.trim()) return;
+      let startBlock = range.startContainer;
+      if (startBlock.nodeType === 3) startBlock = startBlock.parentElement;
+      while (startBlock && startBlock !== editor && !/^(DIV|P|H1|H2)$/i.test(startBlock.tagName)) startBlock = startBlock.parentElement;
+      let endBlock = range.endContainer;
+      if (endBlock.nodeType === 3) endBlock = endBlock.parentElement;
+      while (endBlock && endBlock !== editor && !/^(DIV|P|H1|H2)$/i.test(endBlock.tagName)) endBlock = endBlock.parentElement;
+      if (startBlock && startBlock === endBlock) {
+        const blockText = startBlock.textContent || '';
+        // If selection is a proper substring, split the line
+        if (selText.length > 0 && selText.length < blockText.length) {
+          try {
+            const beforeRange = document.createRange();
+            beforeRange.setStart(startBlock, 0);
+            beforeRange.setEnd(range.startContainer, range.startOffset);
+            const afterRange = document.createRange();
+            afterRange.setStart(range.endContainer, range.endOffset);
+            afterRange.setEnd(startBlock, startBlock.childNodes.length);
+            const beforeFrag = beforeRange.cloneContents();
+            const selectedFrag = range.cloneContents();
+            const afterFrag = afterRange.cloneContents();
+            const frag = document.createDocumentFragment();
+            const hasBefore = beforeFrag.textContent && beforeFrag.textContent.trim().length > 0;
+            const hasAfter = afterFrag.textContent && afterFrag.textContent.trim().length > 0;
+            if (hasBefore) {
+              const beforeDiv = document.createElement('div');
+              beforeDiv.appendChild(beforeFrag);
+              frag.appendChild(beforeDiv);
+            }
+            // Toggle off if the original line was already this heading and the selection is inside it
+            if (startBlock.tagName === tagUpper) {
+              const div = document.createElement('div');
+              div.appendChild(selectedFrag);
+              frag.appendChild(div);
               if (hasAfter) {
                 const afterDiv = document.createElement('div');
                 afterDiv.appendChild(afterFrag);
                 frag.appendChild(afterDiv);
               }
               startBlock.replaceWith(frag);
-              const target = (startBlock.tagName === tagUpper) ? frag.childNodes[hasBefore ? 1 : 0] : frag.childNodes[hasBefore ? 1 : 0];
+              const target = div;
               const r = document.createRange();
               r.selectNodeContents(target);
               sel.removeAllRanges();
               sel.addRange(r);
-              setTimeout(() => { notifyChange(); postFormatState(); }, 50);
               return;
-            } catch {}
-          }
+            }
+            const heading = document.createElement(tagLower);
+            heading.appendChild(selectedFrag);
+            frag.appendChild(heading);
+            if (hasAfter) {
+              const afterDiv = document.createElement('div');
+              afterDiv.appendChild(afterFrag);
+              frag.appendChild(afterDiv);
+            }
+            startBlock.replaceWith(frag);
+            const r = document.createRange();
+            r.selectNodeContents(heading);
+            sel.removeAllRanges();
+            sel.addRange(r);
+            setTimeout(() => {
+              const nr = document.createRange();
+              nr.selectNodeContents(heading);
+              sel.removeAllRanges();
+              sel.addRange(nr);
+            }, 10);
+            return;
+          } catch {}
         }
       }
     }
 
-    // Collapsed or whole-block selection: work on the current block(s)
-    // For collapsed, "after cursor on this line" becomes heading
+    // Collapsed: "text after cursor on this line" becomes heading (per UX request)
+    // Highlighted but not handled above (whole line or multi-line): fall through to block-level
     if (range.collapsed) {
       const block = getCurrentBlock();
       if (!block) {
@@ -254,7 +287,6 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
         return;
       }
       if (!(block.textContent || '').trim()) {
-        // Empty line: just toggle the block
         const newTag = block.tagName === tagUpper ? 'DIV' : tagUpper;
         const repl = document.createElement(newTag.toLowerCase());
         repl.innerHTML = '<br>';
@@ -267,7 +299,6 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
         setTimeout(() => { notifyChange(); postFormatState(); }, 50);
         return;
       }
-      // Split at caret: before stays, after becomes heading (or normal if already heading)
       try {
         const beforeRange = document.createRange();
         beforeRange.setStart(block, 0);
@@ -279,9 +310,8 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
         const afterFrag = afterRange.cloneContents();
         const hasBefore = beforeFrag.textContent && beforeFrag.textContent.trim().length > 0;
         const hasAfter = afterFrag.textContent && afterFrag.textContent.trim().length > 0;
-
         if (!hasAfter) {
-          // Caret at end: create new empty block after
+          // Caret at end: create new empty heading after
           const isHeading = block.tagName === tagUpper;
           if (isHeading) {
             const normal = document.createElement('div');
@@ -318,8 +348,9 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
           if (hasBefore) frag.appendChild(beforeDiv);
           frag.appendChild(afterDiv);
           block.replaceWith(frag);
+          const target = hasBefore ? afterDiv : frag.firstChild;
           const r = document.createRange();
-          r.selectNodeContents(afterDiv);
+          r.selectNodeContents(target);
           r.collapse(true);
           sel.removeAllRanges();
           sel.addRange(r);
@@ -343,7 +374,7 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
       } catch {}
     }
 
-    // Fallback: toggle whole block(s)
+    // Fallback: whole line(s) toggle
     let blocks = [];
     if (!range.collapsed) {
       const walker = document.createTreeWalker(editor, NodeFilter.SHOW_ELEMENT, {
@@ -387,9 +418,7 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
       sel.removeAllRanges();
       sel.addRange(r);
     } catch {}
-    setTimeout(() => { notifyChange(); postFormatState(); }, 50);
   }
-
   window.applyFormat = function(action) {
     editor.focus();
     if (action === 'bold') document.execCommand('bold', false, null);
@@ -401,12 +430,17 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
   };
   window.getEditorContent = function() { return editor.innerHTML; };
 
+  // Handle messages from RN
   window.addEventListener('message', function(e) {
     try {
       const data = JSON.parse(e.data);
-      if (data.type === 'setContent') window.setEditorContent(data.html);
-      else if (data.type === 'setMacros') window.setEditorMacros(data.macros);
-      else if (data.type === 'applyFormat') window.applyFormat(data.action);
+      if (data.type === 'setContent') {
+        window.setEditorContent(data.html);
+      } else if (data.type === 'setMacros') {
+        window.setEditorMacros(data.macros);
+      } else if (data.type === 'applyFormat') {
+        window.applyFormat(data.action);
+      }
     } catch {}
   });
   document.addEventListener('message', function(e) {
@@ -420,3 +454,109 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
 </script>
 </body>
 </html>`;
+
+export const InlineEditor = forwardRef<InlineEditorHandle, Props>(function InlineEditor(
+  { value, onChange, onFormatStateChange, macros, placeholder = 'Your dictation appears here...' },
+  ref,
+) {
+  const webRef = useRef<any>(null);
+  const lastSentRef = useRef<string>('');
+  const readyRef = useRef(false);
+  const [webHeight, setWebHeight] = React.useState(180);
+
+  const sendToWebView = useCallback((data: object) => {
+    const js = `window.dispatchEvent(new MessageEvent('message', {data: ${JSON.stringify(JSON.stringify(data))}})); document.dispatchEvent(new MessageEvent('message', {data: ${JSON.stringify(JSON.stringify(data))}})); true;`;
+    webRef.current?.injectJavaScript(js);
+  }, []);
+
+  useImperativeHandle(ref, () => ({
+    applyFormat: (action) => {
+      sendToWebView({ type: 'applyFormat', action });
+    },
+    focus: () => {
+      webRef.current?.injectJavaScript(`document.getElementById('editor').focus(); true;`);
+    },
+  }));
+
+  useEffect(() => {
+    if (!readyRef.current) return;
+    const html = markdownToHtml(value);
+    if (html !== lastSentRef.current) {
+      lastSentRef.current = html;
+      sendToWebView({ type: 'setContent', html });
+    }
+  }, [value, sendToWebView]);
+
+  useEffect(() => {
+    if (!readyRef.current) return;
+    sendToWebView({ type: 'setMacros', macros: macros || [] });
+  }, [macros, sendToWebView]);
+
+  const onMessage = useCallback(
+    (e: { nativeEvent: { data: string } }) => {
+      try {
+        const data = JSON.parse(e.nativeEvent.data);
+        if (data.type === 'change') {
+          const md = data.markdown as string;
+          if (md !== value) {
+            onChange(md);
+          }
+        } else if (data.type === 'height') {
+          const h = Number(data.height);
+          if (!isNaN(h) && h > 100 && h < 2000) setWebHeight(h);
+        } else if (data.type === 'formatState' && onFormatStateChange) {
+          onFormatStateChange(data.state as FormatState);
+        }
+      } catch {}
+    },
+    [value, onChange, onFormatStateChange],
+  );
+
+  const onLoadEnd = useCallback(() => {
+    readyRef.current = true;
+    const html = markdownToHtml(value);
+    lastSentRef.current = html;
+    // Delay to ensure JS loaded
+    setTimeout(() => {
+      sendToWebView({ type: 'setContent', html });
+      sendToWebView({ type: 'setMacros', macros: macros || [] });
+    }, 100);
+  }, [value, macros, sendToWebView]);
+
+  return (
+    <View style={[styles.container, { height: webHeight }]}>
+      {/* @ts-ignore - WebView types conflict with RN 0.86, runtime works fine */}
+      <WebView
+        ref={webRef}
+        originWhitelist={['*']}
+        source={{ html: htmlTemplate(placeholder) }}
+        onMessage={onMessage}
+        onLoadEnd={onLoadEnd}
+        style={styles.webview}
+        scrollEnabled={false}
+        showsVerticalScrollIndicator={false}
+        keyboardDisplayRequiresUserAction={false}
+        hideKeyboardAccessoryView={false}
+        bounces={false}
+        overScrollMode="never"
+        androidLayerType="hardware"
+      />
+    </View>
+  );
+});
+
+const styles = StyleSheet.create({
+  container: {
+    minHeight: 180,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  webview: {
+    flex: 1,
+    minHeight: 180,
+    backgroundColor: colors.surface,
+  },
+});
