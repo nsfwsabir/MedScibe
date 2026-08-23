@@ -199,88 +199,9 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
     const sel = window.getSelection();
     if (!sel.rangeCount) return;
     const range = sel.getRangeAt(0);
-    // Inline selection inside a single block: split the block so only the selected text becomes heading
-    if (!range.collapsed) {
-      const startBlock = (function() {
-        let n = range.startContainer;
-        if (n.nodeType === 3) n = n.parentElement;
-        while (n && n !== editor && !/^(DIV|P|H1|H2)$/i.test(n.tagName)) n = n.parentElement;
-        return (n && n !== editor) ? n : null;
-      })();
-      const endBlock = (function() {
-        let n = range.endContainer;
-        if (n.nodeType === 3) n = n.parentElement;
-        while (n && n !== editor && !/^(DIV|P|H1|H2)$/i.test(n.tagName)) n = n.parentElement;
-        return (n && n !== editor) ? n : null;
-      })();
-      // If selection is within a single block and does not cover the whole block, split it
-      if (startBlock && startBlock === endBlock) {
-        const blockText = startBlock.textContent || '';
-        const selectedText = range.toString();
-        // Only split if selection is a proper substring (not the whole block)
-        if (selectedText && selectedText.length > 0 && selectedText.length < blockText.length) {
-          try {
-            const beforeText = blockText.slice(0, blockText.indexOf(selectedText));
-            const afterText = blockText.slice(blockText.indexOf(selectedText) + selectedText.length);
-            const heading = document.createElement(targetTag.toLowerCase());
-            heading.textContent = selectedText;
-            const frag = document.createDocumentFragment();
-            if (beforeText) {
-              const beforeDiv = document.createElement('div');
-              beforeDiv.textContent = beforeText;
-              frag.appendChild(beforeDiv);
-            }
-            frag.appendChild(heading);
-            if (afterText) {
-              const afterDiv = document.createElement('div');
-              afterDiv.textContent = afterText;
-              frag.appendChild(afterDiv);
-            }
-            // Check if this block is already this heading - if so, unwrap instead
-            if (startBlock.tagName === targetTag.toUpperCase()) {
-              const div = document.createElement('div');
-              div.textContent = selectedText;
-              // For word-level heading toggle off, just unwrap the heading if the whole block is heading
-              // But we are in the split case, so we need to handle differently
-              // If the block is already heading and selection is part of it, we should convert that part back to normal
-              // For now, just replace the heading block's selected part with normal div
-              // This is complex, so fallback to toggling the whole block off
-              const div2 = document.createElement('div');
-              div2.innerHTML = startBlock.innerHTML;
-              // Find and unwrap the heading if it exists
-              const h = div2.querySelector(targetTag.toLowerCase());
-              if (h) {
-                const txt = document.createTextNode(h.textContent);
-                h.replaceWith(txt);
-              }
-              startBlock.replaceWith(div2);
-              const r = document.createRange();
-              r.selectNodeContents(div2);
-              r.collapse(false);
-              sel.removeAllRanges();
-              sel.addRange(r);
-              return;
-            }
-            startBlock.replaceWith(frag);
-            // Place caret after heading
-            const r = document.createRange();
-            r.selectNodeContents(heading);
-            r.collapse(false);
-            sel.removeAllRanges();
-            sel.addRange(r);
-            // Extend selection to cover heading for visual feedback
-            setTimeout(() => {
-              const nr = document.createRange();
-              nr.selectNodeContents(heading);
-              sel.removeAllRanges();
-              sel.addRange(nr);
-            }, 10);
-            return;
-          } catch {}
-        }
-      }
-    }
-    // Fallback: block-level toggle (collapsed or multi-block or whole-block selection)
+    // Simplified: heading is block-level — convert the whole line(s) containing the selection.
+    // Highlighting a word and pressing H1 makes its entire line a heading (standard behavior).
+    // This is more reliable than trying to split a line into heading + normal fragments.
     let blocks = [];
     if (!range.collapsed) {
       const walker = document.createTreeWalker(editor, NodeFilter.SHOW_ELEMENT, {
