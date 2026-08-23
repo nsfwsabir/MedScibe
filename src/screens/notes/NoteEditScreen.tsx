@@ -15,19 +15,19 @@ import { typography } from '../../theme/typography';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/TextInput';
-import { RichTextInput } from '../../components/ui/RichTextInput';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
-import { applyFormat, FormatAction, RichText } from '../../features/notes/formatting';
+import { RichText } from '../../features/notes/formatting';
+import { InlineEditor, InlineEditorHandle } from '../../components/ui/InlineEditor';
 import { useMacros, useCreateMacro, useDeleteMacro } from '../../features/macros/macrosQueries';
 import { normalizeShortcut, validateMacro } from '../../features/macros/macrosApi';
-import { tryExpandAtCaret } from '../../features/macros/expansion';
 import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
+import type { FormatAction } from '../../features/notes/formatting';
+
 type Props = NativeStackScreenProps<NotesStackParamList, 'NoteEdit'>;
-type Selection = { start: number; end: number };
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -100,10 +100,7 @@ function NoteEditor({
   const [noteText, setNoteText] = useState(note?.note_text ?? note?.raw_transcript ?? '');
   const [saving, setSaving] = useState(false);
 
-  const selectionRef = useRef<Selection>({ start: noteText.length, end: noteText.length });
-  const [forcedSelection, setForcedSelection] = useState<Selection | null>(null);
-  const expandingRef = useRef(false);
-
+  const editorRef = useRef<InlineEditorHandle>(null);
   const { data: macros } = useMacros();
   const [macrosOpen, setMacrosOpen] = useState(false);
   const [macroShortcut, setMacroShortcut] = useState('');
@@ -112,54 +109,8 @@ function NoteEditor({
   const createMacroM = useCreateMacro();
   const deleteMacroM = useDeleteMacro();
 
-  // One-shot caret control: RN TextInputs can't be imperatively positioned,
-  // so we pass `selection` briefly after programmatic edits and clear it as
-  // soon as the platform confirms the caret moved (plus a safety timeout).
-  const applyForcedSelection = (sel: Selection) => {
-    setForcedSelection(sel);
-    setTimeout(() => {
-      setForcedSelection((cur) => (cur === sel ? null : cur));
-    }, 400);
-  };
-
-  const handleSelectionChange = (e: { nativeEvent: { selection: Selection } }) => {
-    // While a programmatic edit is settling, Android reports transient caret
-    // positions (often 0,0). Trust our intended selection instead, and stop
-    // forcing as soon as the platform reports it.
-    if (forcedSelection !== null) {
-      const sel = e.nativeEvent.selection;
-      if (sel.start === forcedSelection.start && sel.end === forcedSelection.end) {
-        setForcedSelection(null);
-      }
-      return;
-    }
-    selectionRef.current = e.nativeEvent.selection;
-  };
-
-  const handleChangeText = (text: string) => {
-    if (expandingRef.current) {
-      expandingRef.current = false;
-      setNoteText(text);
-      return;
-    }
-    const res = tryExpandAtCaret(text, selectionRef.current.end, macros ?? []);
-    if (res) {
-      expandingRef.current = true;
-      setNoteText(res.text);
-      const caret = { start: res.caret, end: res.caret };
-      selectionRef.current = caret;
-      applyForcedSelection(caret);
-      return;
-    }
-    setNoteText(text);
-  };
-
-  const format = (action: FormatAction) => {
-    const res = applyFormat(noteText, selectionRef.current, action);
-    if (res.text !== noteText) expandingRef.current = true;
-    setNoteText(res.text);
-    selectionRef.current = res.selection;
-    applyForcedSelection(res.selection);
+  const format = (action: 'bold' | 'italic' | 'underline' | 'h1' | 'h2') => {
+    editorRef.current?.applyFormat(action);
   };
 
   const handleAddMacro = async () => {
@@ -268,13 +219,12 @@ function NoteEditor({
               <Text style={[typography.label, styles.macrosLabel]}>MACROS</Text>
             </Pressable>
           </View>
-          <RichTextInput
-            placeholder="Your dictation appears here..."
+          <InlineEditor
+            ref={editorRef}
             value={noteText}
-            onChangeText={handleChangeText}
-            onSelectionChange={handleSelectionChange}
-            selection={forcedSelection ?? undefined}
-            style={styles.noteInput}
+            onChange={setNoteText}
+            macros={macros ?? []}
+            placeholder="Your dictation appears here..."
           />
           <Text style={[typography.caption, { color: colors.muted, marginTop: spacing.xs }]}>
             Tip: type a macro shortcut followed by a space to expand it.
@@ -454,6 +404,20 @@ const styles = StyleSheet.create({
   noteInput: {
     minHeight: 160,
     textAlignVertical: 'top',
+  },
+  previewWrap: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  previewLabel: {
+    color: colors.muted,
+  },
+  previewBox: {
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm,
   },
   transcriptText: {
     color: colors.muted,
