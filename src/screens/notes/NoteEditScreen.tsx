@@ -177,6 +177,18 @@ function NoteEditor({
         <View style={{ width: 24 }} />
       </View>
 
+      <View style={styles.toolbarFixed}>
+        {TOOLBAR_ACTIONS.map(({ action, label, style }) => (
+          <Pressable key={action} onPress={() => format(action)} style={styles.toolButton} hitSlop={4}>
+            <Text style={[typography.bodySemibold, styles.toolLabel, style]}>{label}</Text>
+          </Pressable>
+        ))}
+        <View style={styles.toolbarDivider} />
+        <Pressable onPress={() => setMacrosOpen(true)} style={styles.macrosButton} hitSlop={4}>
+          <Text style={[typography.label, styles.macrosLabel]}>MACROS</Text>
+        </Pressable>
+      </View>
+
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Card style={styles.patientCard}>
           <View style={styles.patientRow}>
@@ -208,17 +220,6 @@ function NoteEditor({
           <Text style={[typography.bodySemibold, { color: colors.primary, marginBottom: spacing.sm }]}>
             Note
           </Text>
-          <View style={styles.toolbar}>
-            {TOOLBAR_ACTIONS.map(({ action, label, style }) => (
-              <Pressable key={action} onPress={() => format(action)} style={styles.toolButton} hitSlop={4}>
-                <Text style={[typography.bodySemibold, styles.toolLabel, style]}>{label}</Text>
-              </Pressable>
-            ))}
-            <View style={styles.toolbarDivider} />
-            <Pressable onPress={() => setMacrosOpen(true)} style={styles.macrosButton} hitSlop={4}>
-              <Text style={[typography.label, styles.macrosLabel]}>MACROS</Text>
-            </Pressable>
-          </View>
           <InlineEditor
             ref={editorRef}
             value={noteText}
@@ -355,6 +356,16 @@ const styles = StyleSheet.create({
   },
   noteCard: {
     padding: spacing.md,
+  },
+  toolbarFixed: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   toolbar: {
     flexDirection: 'row',
