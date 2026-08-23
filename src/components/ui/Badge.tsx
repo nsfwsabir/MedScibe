@@ -7,7 +7,7 @@ type Variant = 'draft' | 'finalized' | 'neutral';
 
 const variantColors: Record<Variant, { bg: string; fg: string }> = {
   draft: { bg: '#CC634520', fg: colors.primary },
-  finalized: { bg: '#2E7D3218', fg: '#2E7D32' },
+  finalized: { bg: colors.successBg, fg: colors.success },
   neutral: { bg: colors.border, fg: colors.muted },
 };
 

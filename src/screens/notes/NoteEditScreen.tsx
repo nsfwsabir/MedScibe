@@ -178,7 +178,7 @@ function NoteEditor({
         <Card style={styles.patientCard}>
           <View style={styles.patientRow}>
             <View style={styles.avatar}>
-              <Text style={[typography.bodySemibold, { color: colors.white }]}>{initials}</Text>
+              <Text style={[typography.bodySemibold, { color: colors.text }]}>{initials}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[typography.bodySemibold, { color: colors.text }]}>{patientName || 'Patient'}</Text>
@@ -270,7 +270,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },

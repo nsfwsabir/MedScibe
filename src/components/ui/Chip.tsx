@@ -30,9 +30,9 @@ export function Chip({ label, selected = false, onPress, style }: Props) {
 
 const styles = StyleSheet.create({
   base: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSubtle,
     borderRadius: 100,
     paddingHorizontal: 14,
     paddingVertical: 7,

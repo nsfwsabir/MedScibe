@@ -31,12 +31,13 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap');
   * { box-sizing: border-box; }
   body { margin:0; padding:0; background: ${colors.surface}; }
   #editor {
     min-height: 160px;
     padding: 12px 16px;
-    font-family: -apple-system, system-ui, sans-serif;
+    font-family: 'Manrope', -apple-system, system-ui, sans-serif;
     font-size: 16px;
     line-height: 24px;
     color: ${colors.text};

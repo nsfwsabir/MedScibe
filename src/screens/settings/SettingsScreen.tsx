@@ -62,7 +62,7 @@ export function SettingsScreen() {
 
       <Card style={styles.profile}>
         <View style={styles.avatar}>
-          <Text style={[typography.bodySemibold, { color: colors.white }]}>{initial}</Text>
+          <Text style={[typography.bodySemibold, { color: colors.text }]}>{initial}</Text>
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[typography.bodySemibold, { color: colors.text }]}>{displayName}</Text>
@@ -156,7 +156,7 @@ export function SettingsScreen() {
         </View>
         <View style={[styles.row, styles.borderTop]}>
           <Text style={[typography.bodyMedium, { color: colors.text }]}>DPDP Compliance Certificate</Text>
-          <Text style={[typography.bodySemibold, { color: '#2E7D32' }]}>Verified</Text>
+          <Text style={[typography.bodySemibold, { color: colors.success }]}>Verified</Text>
         </View>
         <View style={[styles.row, styles.borderTop]}>
           <Text style={[typography.bodyMedium, { color: colors.text }]}>Contact Practice Support</Text>
@@ -192,7 +192,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },

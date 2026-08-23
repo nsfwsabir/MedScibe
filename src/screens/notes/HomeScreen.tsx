@@ -71,10 +71,12 @@ export function HomeScreen({ navigation }: Props) {
       <View style={styles.header}>
         <View>
           <Text style={[typography.body, { color: colors.muted }]}>Good morning,</Text>
-          <Text style={[typography.title, { color: colors.text }]}>{user?.email ?? 'Doctor'}</Text>
+          <Text style={[typography.heading, { color: colors.text }]} numberOfLines={1}>
+            {user?.email?.split('@')[0]?.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? 'Doctor'}
+          </Text>
         </View>
         <View style={styles.avatar}>
-          <Text style={[typography.bodySemibold, { color: colors.white }]}>{first}</Text>
+          <Text style={[typography.bodySemibold, { color: colors.text }]}>{first}</Text>
         </View>
       </View>
 
@@ -130,7 +132,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: colors.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
