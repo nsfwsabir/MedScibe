@@ -40,8 +40,8 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
     color: ${colors.muted};
     pointer-events: none;
   }
-  #editor h1 { font-size: 18px; line-height: 26px; color: ${colors.primary}; margin: 8px 0 4px 0; font-weight: 700; }
-  #editor h2 { font-size: 16px; line-height: 24px; color: ${colors.primary}; margin: 8px 0 4px 0; font-weight: 700; }
+  #editor h1 { font-size: 20px; line-height: 28px; color: ${colors.text}; margin: 8px 0 4px 0; font-weight: 800; }
+  #editor h2 { font-size: 17px; line-height: 24px; color: ${colors.text}; margin: 8px 0 4px 0; font-weight: 700; }
   #editor b, #editor strong { font-weight: 700; }
   #editor i, #editor em { font-style: italic; }
   #editor u { text-decoration: underline; }
@@ -162,13 +162,43 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
     window.ReactNativeWebView.postMessage(JSON.stringify({type:'height', height: h}));
   };
   window.setEditorMacros = function(list) { macros = list || []; };
+  function currentBlock() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    let n = sel.getRangeAt(0).startContainer;
+    if (n.nodeType === 3) n = n.parentElement;
+    while (n && n !== editor && !/^(H1|H2|DIV|P|LI)$/i.test(n.tagName)) n = n.parentElement;
+    return (n && n !== editor) ? n : null;
+  }
   window.applyFormat = function(action) {
     editor.focus();
     if (action === 'bold') document.execCommand('bold', false, null);
     else if (action === 'italic') document.execCommand('italic', false, null);
     else if (action === 'underline') document.execCommand('underline', false, null);
-    else if (action === 'h1') document.execCommand('formatBlock', false, 'h1');
-    else if (action === 'h2') document.execCommand('formatBlock', false, 'h2');
+    else if (action === 'h1' || action === 'h2') {
+      const tag = action.toUpperCase();
+      const block = currentBlock();
+      if (block && block.tagName === tag) {
+        // toggle off -> back to normal paragraph/div
+        document.execCommand('formatBlock', false, 'p');
+        // unwrap p/div extra styling if needed - convert to div for clean markdown
+        const cur = currentBlock();
+        if (cur && cur.tagName === 'P') {
+          // turn <p> into <div> for our markdown model
+          const div = document.createElement('div');
+          div.innerHTML = cur.innerHTML;
+          cur.replaceWith(div);
+          const r = document.createRange();
+          r.selectNodeContents(div);
+          r.collapse(false);
+          const s = window.getSelection();
+          s.removeAllRanges();
+          s.addRange(r);
+        }
+      } else {
+        document.execCommand('formatBlock', false, tag.toLowerCase());
+      }
+    }
     setTimeout(notifyChange, 50);
   };
   window.getEditorContent = function() { return editor.innerHTML; };
