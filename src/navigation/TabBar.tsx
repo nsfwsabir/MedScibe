@@ -6,6 +6,7 @@ import { colors, elevation } from '../theme/tokens';
 import { typography } from '../theme/typography';
 import { useUiStore } from '../features/ui/uiStore';
 import { NewNoteModal } from '../screens/notes/NewNoteModal';
+import { NotesIcon, SettingsIcon } from '../components/ui/icons';
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
@@ -19,8 +20,10 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         {tabs.map((route, index) => {
           const realIndex = state.routes.indexOf(route);
           const focused = state.index === realIndex;
-          const label = route.name === 'NotesTab' ? 'Notes' : 'Settings';
+          const isNotes = route.name === 'NotesTab';
+          const label = isNotes ? 'Notes' : 'Settings';
           const active = focused ? colors.primary : colors.muted;
+          const Icon = isNotes ? NotesIcon : SettingsIcon;
           return (
             <Pressable
               key={route.key}
@@ -36,8 +39,9 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                 }
               }}
             >
-              <View style={[styles.tabDot, focused && styles.tabDotActive]} />
+              <Icon size={20} color={active} />
               <Text style={[typography.bodySemibold, { color: active }]}>{label}</Text>
+              <View style={[styles.tabDot, focused ? styles.tabDotActive : styles.tabDotInactive]} />
             </Pressable>
           );
         })}
@@ -79,6 +83,9 @@ const styles = StyleSheet.create({
   },
   tabDotActive: {
     backgroundColor: colors.primary,
+  },
+  tabDotInactive: {
+    backgroundColor: 'transparent',
   },
   fab: {
     position: 'absolute',
