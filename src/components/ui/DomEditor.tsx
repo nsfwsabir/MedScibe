@@ -1,9 +1,16 @@
-'use dom';
+import React, { useCallback, useEffect, useRef, useImperativeHandle, forwardRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import WebView from 'react-native-webview';
+import { colors } from '../../theme/tokens';
+import { Macro } from '../../features/macros/macrosApi';
+import { markdownToHtml } from '../../features/notes/htmlConvert';
 
-import { useEffect, useRef, useState } from 'react';
-import { useDOMImperativeHandle } from 'expo/dom';
+export type DomEditorHandle = {
+  applyFormat: (...args: any[]) => void;
+  focus: () => void;
+};
 
-type FormatState = {
+export type FormatState = {
   bold: boolean;
   italic: boolean;
   underline: boolean;
@@ -11,90 +18,94 @@ type FormatState = {
   h2: boolean;
 };
 
-export type DomEditorHandle = {
-  applyFormat: (...args: any[]) => void;
-  focus: () => void;
-};
-
-import { forwardRef } from 'react';
-
-const DomEditorBase = forwardRef<DomEditorHandle, {
+type Props = {
   value: string;
   placeholder?: string;
   onChange: (markdown: string) => void;
   onFormatStateChange?: (state: FormatState) => void;
   onHeightChange?: (height: number) => void;
   macros?: { shortcut: string; expansion: string }[];
-  dom?: import('expo/dom').DOMProps;
-}>(function DomEditor(
-  { value, placeholder, onChange, onFormatStateChange, onHeightChange, macros, dom },
-  ref,
-) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const lastHtmlRef = useRef('');
-  const macrosRef = useRef(macros);
+  dom?: any;
+};
 
-  macrosRef.current = macros;
+const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<style>
+  * { box-sizing: border-box; }
+  body { margin:0; padding:0; background: ${colors.surface}; }
+  #editor {
+    min-height: 160px;
+    padding: 12px 16px;
+    font-family: 'Manrope', -apple-system, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    color: ${colors.text};
+    outline: none;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+  }
+  #editor:empty:before {
+    content: attr(data-placeholder);
+    color: ${colors.muted};
+    pointer-events: none;
+  }
+  #editor h1 { font-size: 20px; line-height: 28px; color: ${colors.text}; margin: 8px 0 4px 0; font-weight: 800; }
+  #editor h2 { font-size: 17px; line-height: 24px; color: ${colors.text}; margin: 8px 0 4px 0; font-weight: 700; }
+  #editor b, #editor strong { font-weight: 700; }
+  #editor i, #editor em { font-style: italic; }
+  #editor u { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div id="editor" contenteditable="true" data-placeholder="${placeholder.replace(/"/g, '&quot;')}"></div>
+<script>
+  const editor = document.getElementById('editor');
+  let lastHtml = '';
+  let macros = [];
 
-  // Convert markdown to HTML for initial render and updates
-  const markdownToHtml = (md: string): string => {
-    if (!md.trim()) return '';
-    let html = md
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-    const lines = html.split('\n');
-    const processed = lines.map((line) => {
-      if (line.startsWith('## ')) return `<h2>${line.slice(3)}</h2>`;
-      if (line.startsWith('# ')) return `<h1>${line.slice(2)}</h1>`;
-      return line;
-    });
-    html = processed.join('\n');
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
-    html = html.replace(/__([^_]+)__/g, '<u>$1</u>');
-    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<i>$1</i>');
-    const parts = html.split('\n');
-    const wrapped = parts.map((p) => {
-      if (p.startsWith('<h')) return p;
-      if (p.trim() === '') return '<div><br></div>';
-      return `<div>${p}</div>`;
-    });
-    return wrapped.join('');
-  };
-
-  const htmlToMarkdown = (html: string): string => {
+  function htmlToMarkdown(html) {
     let md = html;
-    md = md.replace(/<div><br><\/div>/gi, '\n');
-    md = md.replace(/<div>/gi, '\n');
-    md = md.replace(/<\/div>/gi, '');
+    md = md.replace(/<div><br><\\/div>/gi, '\\n');
+    md = md.replace(/<div>/gi, '\\n');
+    md = md.replace(/<\\/div>/gi, '');
     md = md.replace(/<p[^>]*>/gi, '');
-    md = md.replace(/<\/p>/gi, '\n');
-    md = md.replace(/<br\s*\/?>/gi, '\n');
-    md = md.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, (_, c) => '# ' + stripTags(c).trim() + '\n');
-    md = md.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, (_, c) => '## ' + stripTags(c).trim() + '\n');
-    md = md.replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, '**$1**');
-    md = md.replace(/<b[^>]*>([\s\S]*?)<\/b>/gi, '**$1**');
-    md = md.replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, '*$1*');
-    md = md.replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*');
-    md = md.replace(/<u[^>]*>([\s\S]*?)<\/u>/gi, '__$1__');
+    md = md.replace(/<\\/p>/gi, '\\n');
+    md = md.replace(/<br\\s*\\/?>/gi, '\\n');
+    md = md.replace(/<h1[^>]*>([\\s\\S]*?)<\\/h1>/gi, (m, c) => '# ' + stripTags(c).trim() + '\\n');
+    md = md.replace(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/gi, (m, c) => '## ' + stripTags(c).trim() + '\\n');
+    md = md.replace(/<strong[^>]*>([\\s\\S]*?)<\\/strong>/gi, '**$1**');
+    md = md.replace(/<b[^>]*>([\\s\\S]*?)<\\/b>/gi, '**$1**');
+    md = md.replace(/<em[^>]*>([\\s\\S]*?)<\\/em>/gi, '*$1*');
+    md = md.replace(/<i[^>]*>([\\s\\S]*?)<\\/i>/gi, '*$1*');
+    md = md.replace(/<u[^>]*>([\\s\\S]*?)<\\/u>/gi, '__$1__');
     md = stripTags(md);
-    md = md.replace(/^\*\*\*\*\s*\n?/, '');
-    md = md.replace(/\n\*\*\*\*\s*\n?/g, '\n');
-    md = md.replace(/\*\*\s*\*\*/g, '');
-    md = md.replace(/__\s*__/g, '');
-    md = md.replace(/\*\s*\*/g, '');
-    md = md.replace(/\n{3,}/g, '\n\n');
+    md = md.replace(/^\\*\\*\\*\\*\\s*\\n?/, '');
+    md = md.replace(/\\n\\*\\*\\*\\*\\s*\\n?/g, '\\n');
+    md = md.replace(/\\*\\*\\s*\\*\\*/g, '');
+    md = md.replace(/__\\s*__/g, '');
+    md = md.replace(/\\*\\s*\\*/g, '');
+    md = md.replace(/\\n{3,}/g, '\\n\\n');
     md = md.replace(/&nbsp;/g, ' ');
     md = md.replace(/&amp;/g, '&');
     md = md.replace(/&lt;/g, '<');
     md = md.replace(/&gt;/g, '>');
     md = md.replace(/&quot;/g, '"');
     return md.trim();
-  };
+  }
+  function stripTags(s) { return s.replace(/<[^>]*>/g, ''); }
 
-  const stripTags = (s: string) => s.replace(/<[^>]*>/g, '');
+  function getCurrentBlock() {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return null;
+    let n = sel.getRangeAt(0).startContainer;
+    if (n.nodeType === 3) n = n.parentElement;
+    while (n && n !== editor && !/^(H1|H2|DIV|P|LI)$/i.test(n.tagName)) n = n.parentElement;
+    return (n && n !== editor) ? n : null;
+  }
 
-  const postFormatState = () => {
+  function postFormatState() {
     try {
       const block = getCurrentBlock();
       const state = {
@@ -104,57 +115,87 @@ const DomEditorBase = forwardRef<DomEditorHandle, {
         h1: block ? block.tagName === 'H1' : false,
         h2: block ? block.tagName === 'H2' : false,
       };
-      onFormatStateChange?.(state);
+      window.ReactNativeWebView.postMessage(JSON.stringify({type:'formatState', state: state}));
     } catch {}
-  };
+  }
 
-  const notifyChange = () => {
-    if (!editorRef.current) return;
-    const html = editorRef.current.innerHTML;
-    if (html === lastHtmlRef.current) return;
-    lastHtmlRef.current = html;
+  function notifyChange() {
+    const html = editor.innerHTML;
+    if (html === lastHtml) return;
+    lastHtml = html;
     const md = htmlToMarkdown(html);
-    onChange(md);
-    // Report height
-    const h = Math.max(180, document.documentElement.scrollHeight || editorRef.current.scrollHeight);
-    onHeightChange?.(h);
+    window.ReactNativeWebView.postMessage(JSON.stringify({type:'change', markdown: md, html: html}));
+    const h = Math.max(180, document.documentElement.scrollHeight);
+    window.ReactNativeWebView.postMessage(JSON.stringify({type:'height', height: h}));
     postFormatState();
-  };
+  }
 
-  const getCurrentBlock = () => {
+  editor.addEventListener('input', () => {
+    handleMacroOnSpace();
+    notifyChange();
+  });
+  editor.addEventListener('keyup', () => { notifyChange(); postFormatState(); });
+  editor.addEventListener('mouseup', postFormatState);
+  document.addEventListener('selectionchange', postFormatState);
+  editor.addEventListener('paste', () => setTimeout(notifyChange, 50));
+
+  function handleMacroOnSpace() {
+    if (!macros.length) return;
     const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return null;
-    let n: Node | null = sel.getRangeAt(0).startContainer;
-    if (n.nodeType === 3) n = (n as Text).parentElement;
-    while (n && n !== editorRef.current && !/^(H1|H2|DIV|P|LI)$/i.test((n as Element).tagName)) {
-      n = (n as Element).parentElement;
+    if (!sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return;
+    const node = range.startContainer;
+    let textBefore = '';
+    if (node.nodeType === 3) {
+      textBefore = (node.textContent || '').slice(0, range.startOffset);
+    } else {
+      textBefore = (node.textContent || '').slice(0, range.startOffset);
     }
-    return n && n !== editorRef.current ? (n as Element) : null;
-  };
+    const m = textBefore.match(/([A-Za-z0-9_]+)$/);
+    if (!m) return;
+    const word = m[1];
+    const hit = macros.find(x => x.shortcut.toLowerCase() === word.toLowerCase());
+    if (!hit) return;
+    try {
+      const wordLen = word.length;
+      range.setStart(node, range.startOffset - wordLen);
+      range.setEnd(node, range.startOffset);
+      range.deleteContents();
+      const textNode = document.createTextNode(hit.expansion);
+      range.insertNode(textNode);
+      range.setStartAfter(textNode);
+      range.setEndAfter(textNode);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } catch(e) {}
+  }
 
-  const toggleHeading = (targetTag: string) => {
+  window.setEditorContent = function(html) {
+    if (html === lastHtml) return;
+    lastHtml = html;
+    editor.innerHTML = html;
+    const h = Math.max(180, document.documentElement.scrollHeight);
+    window.ReactNativeWebView.postMessage(JSON.stringify({type:'height', height: h}));
+  };
+  window.setEditorMacros = function(list) { macros = list || []; };
+
+  function toggleHeading(targetTag) {
     const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
+    if (!sel.rangeCount) return;
     const range = sel.getRangeAt(0);
     const tagUpper = targetTag.toUpperCase();
     const tagLower = targetTag.toLowerCase();
 
-    // Highlighted text: split so only that text becomes heading
     if (!range.collapsed) {
       const selectedText = range.toString();
       if (selectedText && selectedText.trim()) {
-        const startBlock = (() => {
-          let n: Node | null = range.startContainer;
-          if (n.nodeType === 3) n = (n as Text).parentElement;
-          while (n && n !== editorRef.current && !/^(DIV|P|H1|H2)$/i.test((n as Element).tagName)) n = (n as Element).parentElement;
-          return n && n !== editorRef.current ? (n as Element) : null;
-        })();
-        const endBlock = (() => {
-          let n: Node | null = range.endContainer;
-          if (n.nodeType === 3) n = (n as Text).parentElement;
-          while (n && n !== editorRef.current && !/^(DIV|P|H1|H2)$/i.test((n as Element).tagName)) n = (n as Element).parentElement;
-          return n && n !== editorRef.current ? (n as Element) : null;
-        })();
+        let startBlock = range.startContainer;
+        if (startBlock.nodeType === 3) startBlock = startBlock.parentElement;
+        while (startBlock && startBlock !== editor && !/^(DIV|P|H1|H2)$/i.test(startBlock.tagName)) startBlock = startBlock.parentElement;
+        let endBlock = range.endContainer;
+        if (endBlock.nodeType === 3) endBlock = endBlock.parentElement;
+        while (endBlock && endBlock !== editor && !/^(DIV|P|H1|H2)$/i.test(endBlock.tagName)) endBlock = endBlock.parentElement;
         if (startBlock && startBlock === endBlock) {
           const blockText = startBlock.textContent || '';
           if (selectedText.length > 0 && selectedText.length < blockText.length) {
@@ -193,7 +234,7 @@ const DomEditorBase = forwardRef<DomEditorHandle, {
               startBlock.replaceWith(frag);
               const target = startBlock.tagName === tagUpper ? frag.childNodes[hasBefore ? 1 : 0] : frag.childNodes[hasBefore ? 1 : 0];
               const r = document.createRange();
-              r.selectNodeContents(target as Node);
+              r.selectNodeContents(target);
               sel.removeAllRanges();
               sel.addRange(r);
               return;
@@ -203,7 +244,6 @@ const DomEditorBase = forwardRef<DomEditorHandle, {
       }
     }
 
-    // Collapsed or whole-block: "after cursor" becomes heading
     if (range.collapsed) {
       const block = getCurrentBlock();
       if (!block) {
@@ -271,7 +311,7 @@ const DomEditorBase = forwardRef<DomEditorHandle, {
           block.replaceWith(frag);
           const target = hasBefore ? frag.childNodes[1] : frag.firstChild;
           const r = document.createRange();
-          r.selectNodeContents(target as Node);
+          r.selectNodeContents(target);
           r.collapse(true);
           sel.removeAllRanges();
           sel.addRange(r);
@@ -294,15 +334,16 @@ const DomEditorBase = forwardRef<DomEditorHandle, {
       } catch {}
     }
 
-    // Fallback: whole block(s)
-    let blocks: Element[] = [];
+    let blocks = [];
     if (!range.collapsed) {
-      const walker = document.createTreeWalker(editorRef.current!, NodeFilter.SHOW_ELEMENT, {
-        acceptNode: (node) => (/^(DIV|P|H1|H2)$/i.test((node as Element).tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) as unknown as number,
+      const walker = document.createTreeWalker(editor, NodeFilter.SHOW_ELEMENT, {
+        acceptNode: function(node) {
+          return /^(DIV|P|H1|H2)$/i.test(node.tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
       });
-      let node: Node | null;
-      while ((node = walker.nextNode())) {
-        if (range.intersectsNode(node)) blocks.push(node as Element);
+      let node;
+      while (node = walker.nextNode()) {
+        if (range.intersectsNode(node)) blocks.push(node);
       }
       if (blocks.length === 0) {
         const b = getCurrentBlock();
@@ -317,15 +358,15 @@ const DomEditorBase = forwardRef<DomEditorHandle, {
       }
     }
     if (blocks.length === 0) return;
-    const allAreTarget = blocks.every((b) => b.tagName === tagUpper);
+    const allAreTarget = blocks.every(b => b.tagName === tagUpper);
     const newTag = allAreTarget ? 'DIV' : tagUpper;
     for (let i = blocks.length - 1; i >= 0; i--) {
       const block = blocks[i];
       if (block.tagName === newTag) continue;
-      const repl = document.createElement(newTag.toLowerCase());
-      repl.innerHTML = block.innerHTML || '<br>';
-      block.replaceWith(repl);
-      blocks[i] = repl;
+      const replacement = document.createElement(newTag.toLowerCase());
+      replacement.innerHTML = block.innerHTML || '<br>';
+      block.replaceWith(replacement);
+      blocks[i] = replacement;
     }
     try {
       const last = blocks[blocks.length - 1];
@@ -335,113 +376,146 @@ const DomEditorBase = forwardRef<DomEditorHandle, {
       sel.removeAllRanges();
       sel.addRange(r);
     } catch {}
-  };
+  }
 
-  const handleMacroOnSpace = () => {
-    const macrosList = macrosRef.current;
-    if (!macrosList || macrosList.length === 0) return;
-    const sel = window.getSelection();
-    if (!sel || !sel.rangeCount) return;
-    const range = sel.getRangeAt(0);
-    if (!range.collapsed) return;
-    let textBefore = '';
-    const node = range.startContainer;
-    if (node.nodeType === 3) {
-      textBefore = (node.textContent || '').slice(0, range.startOffset);
-    } else {
-      textBefore = (node.textContent || '').slice(0, range.startOffset);
-    }
-    const m = textBefore.match(/([A-Za-z0-9_]+)$/);
-    if (!m) return;
-    const word = m[1];
-    const hit = macrosList.find((x) => x.shortcut.toLowerCase() === word.toLowerCase());
-    if (!hit) return;
+  window.applyFormat = function(action) {
+    editor.focus();
+    if (action === 'bold') document.execCommand('bold', false, null);
+    else if (action === 'italic') document.execCommand('italic', false, null);
+    else if (action === 'underline') document.execCommand('underline', false, null);
+    else if (action === 'h1') toggleHeading('H1');
+    else if (action === 'h2') toggleHeading('H2');
+    setTimeout(() => { notifyChange(); postFormatState(); }, 50);
+  };
+  window.getEditorContent = function() { return editor.innerHTML; };
+
+  window.addEventListener('message', function(e) {
     try {
-      const wordLen = word.length;
-      range.setStart(node, range.startOffset - wordLen);
-      range.setEnd(node, range.startOffset);
-      range.deleteContents();
-      const textNode = document.createTextNode(hit.expansion);
-      range.insertNode(textNode);
-      range.setStartAfter(textNode);
-      range.setEndAfter(textNode);
-      sel.removeAllRanges();
-      sel.addRange(range);
+      const data = JSON.parse(e.data);
+      if (data.type === 'setContent') window.setEditorContent(data.html);
+      else if (data.type === 'setMacros') window.setEditorMacros(data.macros);
+      else if (data.type === 'applyFormat') window.applyFormat(data.action);
     } catch {}
-  };
+  });
+  document.addEventListener('message', function(e) {
+    try {
+      const data = JSON.parse(e.data);
+      if (data.type === 'setContent') window.setEditorContent(data.html);
+      else if (data.type === 'setMacros') window.setEditorMacros(data.macros);
+      else if (data.type === 'applyFormat') window.applyFormat(data.action);
+    } catch {}
+  });
+</script>
+</body>
+</html>`;
 
-  useDOMImperativeHandle(
+export const DomEditor = forwardRef<DomEditorHandle, Props>(function DomEditor(
+  { value, placeholder, onChange, onFormatStateChange, onHeightChange, macros, dom },
+  ref,
+) {
+  const webRef = useRef<any>(null);
+  const lastHtmlRef = useRef('');
+  const readyRef = useRef(false);
+  const [webHeight, setWebHeight] = useState(180);
+
+  const sendToWebView = useCallback((data: object) => {
+    const js = `window.dispatchEvent(new MessageEvent('message', {data: ${JSON.stringify(JSON.stringify(data))}})); document.dispatchEvent(new MessageEvent('message', {data: ${JSON.stringify(JSON.stringify(data))}})); true;`;
+    webRef.current?.injectJavaScript(js);
+  }, []);
+
+  useImperativeHandle(
     ref as any,
     () => ({
       applyFormat: (...args: any[]) => {
         const action = args[0] as string;
-        const editor = editorRef.current;
-        if (!editor) return;
-        editor.focus();
-        if (action === 'bold') document.execCommand('bold', false);
-        else if (action === 'italic') document.execCommand('italic', false);
-        else if (action === 'underline') document.execCommand('underline', false);
-        else if (action === 'h1' || action === 'h2') toggleHeading(action.toUpperCase());
-        setTimeout(() => {
-          notifyChange();
-          postFormatState();
-        }, 50);
+        sendToWebView({ type: 'applyFormat', action });
       },
-      focus: () => editorRef.current?.focus(),
+      focus: () => {
+        webRef.current?.injectJavaScript(`document.getElementById('editor').focus(); true;`);
+      },
     }),
-    []
+    [sendToWebView],
   );
 
   useEffect(() => {
-    if (!editorRef.current) return;
+    if (!readyRef.current) return;
     const html = markdownToHtml(value);
     if (html !== lastHtmlRef.current) {
       lastHtmlRef.current = html;
-      editorRef.current.innerHTML = html;
+      sendToWebView({ type: 'setContent', html });
     }
-  }, [value]);
+  }, [value, sendToWebView]);
 
   useEffect(() => {
-    const onSelectionChange = () => postFormatState();
-    document.addEventListener('selectionchange', onSelectionChange);
-    return () => document.removeEventListener('selectionchange', onSelectionChange);
-  }, []);
+    if (!readyRef.current) return;
+    sendToWebView({ type: 'setMacros', macros: macros || [] });
+  }, [macros, sendToWebView]);
 
-  const handleInput = () => {
-    handleMacroOnSpace();
-    notifyChange();
-  };
+  const onMessage = useCallback(
+    (e: { nativeEvent: { data: string } }) => {
+      try {
+        const data = JSON.parse(e.nativeEvent.data);
+        if (data.type === 'change') {
+          const md = data.markdown as string;
+          if (md !== value) {
+            onChange(md);
+          }
+        } else if (data.type === 'height') {
+          const h = Number(data.height);
+          if (!isNaN(h) && h > 100 && h < 2000) setWebHeight(h);
+        } else if (data.type === 'formatState' && onFormatStateChange) {
+          onFormatStateChange(data.state as FormatState);
+        }
+      } catch {}
+    },
+    [value, onChange, onFormatStateChange],
+  );
+
+  const onLoadEnd = useCallback(() => {
+    readyRef.current = true;
+    const html = markdownToHtml(value);
+    lastHtmlRef.current = html;
+    setTimeout(() => {
+      sendToWebView({ type: 'setContent', html });
+      sendToWebView({ type: 'setMacros', macros: macros || [] });
+    }, 100);
+  }, [value, macros, sendToWebView]);
 
   return (
-    <div
-      ref={editorRef}
-      contentEditable
-      data-placeholder={placeholder}
-      onInput={handleInput}
-      onKeyUp={() => {
-        notifyChange();
-        postFormatState();
-      }}
-      onMouseUp={postFormatState}
-      onPaste={() => setTimeout(notifyChange, 50)}
-      style={{
-        minHeight: 160,
-        padding: '12px 16px',
-        fontFamily: 'Manrope, -apple-system, system-ui, sans-serif',
-        fontSize: 16,
-        lineHeight: '24px',
-        color: '#24211E',
-        outline: 'none',
-        whiteSpace: 'pre-wrap',
-        wordWrap: 'break-word',
-        backgroundColor: '#FDFBF7',
-        borderWidth: 1,
-        borderColor: '#F5E6E1',
-        borderStyle: 'solid',
-        borderRadius: 8,
-      }}
-    />
+    <View style={[styles.container, { height: webHeight }]}>
+      <WebView
+        ref={webRef}
+        originWhitelist={['*']}
+        source={{ html: htmlTemplate(placeholder || 'Your dictation appears here...') }}
+        onMessage={onMessage}
+        onLoadEnd={onLoadEnd}
+        style={styles.webview}
+        scrollEnabled={false}
+        showsVerticalScrollIndicator={false}
+        keyboardDisplayRequiresUserAction={false}
+        hideKeyboardAccessoryView={false}
+        bounces={false}
+        overScrollMode="never"
+        androidLayerType="hardware"
+      />
+    </View>
   );
 });
 
-export default DomEditorBase;
+const styles = StyleSheet.create({
+  container: {
+    minHeight: 180,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
+  },
+  webview: {
+    flex: 1,
+    minHeight: 180,
+    backgroundColor: colors.surface,
+  },
+});
+
+export default DomEditor;
