@@ -17,8 +17,17 @@ import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/TextInput';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
-import { InlineEditor, InlineEditorHandle, FormatState } from '../../components/ui/InlineEditor';
+import DomEditor from '../../components/ui/DomEditor';
+import type { DomEditorHandle } from '../../components/ui/DomEditor';
 import { useMacros } from '../../features/macros/macrosQueries';
+
+type FormatState = {
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  h1: boolean;
+  h2: boolean;
+};
 import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -97,7 +106,7 @@ function NoteEditor({
   const [noteText, setNoteText] = useState(note?.note_text ?? note?.raw_transcript ?? '');
   const [saving, setSaving] = useState(false);
 
-  const editorRef = useRef<InlineEditorHandle>(null);
+  const editorRef = useRef<DomEditorHandle>(null);
   const { data: macros } = useMacros();
   const [formatState, setFormatState] = useState<FormatState>({
     bold: false,
@@ -205,13 +214,14 @@ function NoteEditor({
           <Text style={[typography.bodySemibold, { color: colors.primary, marginBottom: spacing.sm }]}>
             Note
           </Text>
-          <InlineEditor
+          <DomEditor
             ref={editorRef}
             value={noteText}
             onChange={setNoteText}
             onFormatStateChange={setFormatState}
             macros={macros ?? []}
             placeholder="Your dictation appears here..."
+            dom={{ matchContents: true, scrollEnabled: false } as any}
           />
           <Text style={[typography.caption, { color: colors.muted, marginTop: spacing.xs }]}>
             Tip: type a macro shortcut followed by a space to expand it.
