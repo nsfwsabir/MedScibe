@@ -286,6 +286,7 @@ const styles = StyleSheet.create({
   toolbarFixed: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

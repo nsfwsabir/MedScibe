@@ -13,6 +13,7 @@ export type NotesStackParamList = {
 
 export type SettingsStackParamList = {
   Settings: undefined;
+  Profile: undefined;
 };
 
 export type RootTabParamList = {

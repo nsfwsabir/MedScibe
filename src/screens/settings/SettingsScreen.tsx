@@ -12,13 +12,19 @@ import { useSettingsStore, RetentionDays } from '../../features/settings/setting
 import { useMacros, useCreateMacro, useDeleteMacro } from '../../features/macros/macrosQueries';
 import { normalizeShortcut, validateMacro } from '../../features/macros/macrosApi';
 import { RichText } from '../../features/notes/formatting';
+import { useProfileStore } from '../../features/profile/profileStore';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { SettingsStackParamList } from '../../navigation/types';
 
 export function SettingsScreen() {
   const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
   const user = useAuthStore((s) => s.user);
   const signOut = useAuthStore((s) => s.signOut);
   const { retainOriginalAudio, retentionDays, setRetainOriginalAudio, setRetentionDays } =
     useSettingsStore();
+  const { profile } = useProfileStore();
   const { data: macros } = useMacros();
   const [macroShortcut, setMacroShortcut] = useState('');
   const [macroExpansion, setMacroExpansion] = useState('');
@@ -46,12 +52,13 @@ export function SettingsScreen() {
     }
   };
 
-  const name = user?.email?.split('@')[0] ?? 'Doctor';
-  const displayName = name
+  const emailName = user?.email?.split('@')[0] ?? 'Doctor';
+  const derivedName = emailName
     .split(/[._-]/)
     .map((w) => w[0]?.toUpperCase() + w.slice(1))
     .join(' ');
-  const initial = displayName[0] ?? 'D';
+  const displayName = profile.displayName?.trim() || derivedName;
+  const initial = displayName[0]?.toUpperCase() ?? 'D';
 
   return (
     <ScrollView
@@ -60,15 +67,21 @@ export function SettingsScreen() {
     >
       <Text style={[typography.heading, { color: colors.text, marginBottom: spacing.md }]}>Settings</Text>
 
-      <Card style={styles.profile}>
-        <View style={styles.avatar}>
-          <Text style={[typography.bodySemibold, { color: colors.text }]}>{initial}</Text>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={[typography.bodySemibold, { color: colors.text }]}>{displayName}</Text>
-          <Text style={[typography.caption, { color: colors.muted }]}>{user?.email}</Text>
-        </View>
-      </Card>
+      <Pressable onPress={() => navigation.navigate('Profile')}>
+        <Card style={styles.profile}>
+          <View style={styles.avatar}>
+            <Text style={[typography.bodySemibold, { color: colors.text }]}>{initial}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[typography.bodySemibold, { color: colors.text }]}>{displayName}</Text>
+            <Text style={[typography.caption, { color: colors.muted }]}>{user?.email}</Text>
+            {profile.specialty ? (
+              <Text style={[typography.caption, { color: colors.muted }]}>{profile.specialty}</Text>
+            ) : null}
+          </View>
+          <Text style={[typography.title, { color: colors.muted }]}>›</Text>
+        </Card>
+      </Pressable>
 
       <Card style={styles.section}>
         <View style={styles.row}>

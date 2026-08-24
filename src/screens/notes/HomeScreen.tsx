@@ -11,8 +11,10 @@ import { useNotes } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
 import { plainText } from '../../features/notes/formatting';
 import { useAuthStore } from '../../features/auth/authStore';
+import { useProfileStore, getGreeting } from '../../features/profile/profileStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
+import { useNavigation } from '@react-navigation/native';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'Home'>;
 
@@ -55,7 +57,9 @@ function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
 
 export function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const tabNavigation = useNavigation<any>();
   const user = useAuthStore((s) => s.user);
+  const { profile } = useProfileStore();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
   const { data: notes, isLoading } = useNotes({
@@ -63,21 +67,27 @@ export function HomeScreen({ navigation }: Props) {
     query: query.trim() || undefined,
   });
 
-  const first = user?.email?.[0]?.toUpperCase() ?? 'D';
+  const emailName = user?.email?.split('@')[0] ?? 'Doctor';
+  const derivedName = emailName.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  const displayName = profile.displayName?.trim() || derivedName;
+  const greeting = getGreeting();
+  const first = displayName[0]?.toUpperCase() ?? 'D';
   const draftCount = notes?.filter((n) => n.status === 'draft').length ?? 0;
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
         <View>
-          <Text style={[typography.body, { color: colors.muted }]}>Good morning,</Text>
+          <Text style={[typography.body, { color: colors.muted }]}>{greeting},</Text>
           <Text style={[typography.heading, { color: colors.text }]} numberOfLines={1}>
-            {user?.email?.split('@')[0]?.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? 'Doctor'}
+            {displayName}
           </Text>
         </View>
-        <View style={styles.avatar}>
-          <Text style={[typography.bodySemibold, { color: colors.text }]}>{first}</Text>
-        </View>
+        <Pressable onPress={() => tabNavigation.navigate('SettingsTab', { screen: 'Profile' })} hitSlop={8}>
+          <View style={styles.avatar}>
+            <Text style={[typography.bodySemibold, { color: colors.text }]}>{first}</Text>
+          </View>
+        </Pressable>
       </View>
 
       <TextInput

@@ -12,6 +12,7 @@ import {
 } from '@expo-google-fonts/manrope';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { useAuthStore } from './src/features/auth/authStore';
+import { useProfileStore } from './src/features/profile/profileStore';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,6 +25,7 @@ const queryClient = new QueryClient({
 
 export default function App() {
   const bootstrap = useAuthStore((s) => s.bootstrap);
+  const loadProfile = useProfileStore((s) => s.loadProfile);
   const [fontsLoaded] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
@@ -33,7 +35,8 @@ export default function App() {
 
   useEffect(() => {
     void bootstrap();
-  }, [bootstrap]);
+    void loadProfile();
+  }, [bootstrap, loadProfile]);
 
   if (!fontsLoaded) {
     return null;
