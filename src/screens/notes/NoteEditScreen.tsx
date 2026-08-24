@@ -174,7 +174,7 @@ function NoteEditor({
         })}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Card style={styles.patientCard}>
           <View style={styles.patientRow}>
             <View style={styles.avatar}>
@@ -253,9 +253,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
   },
+  scroll: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: spacing.md,
     gap: spacing.md,
+    paddingTop: spacing.md,
     paddingBottom: spacing.lg,
   },
   patientCard: {
