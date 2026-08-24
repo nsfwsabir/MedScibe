@@ -75,17 +75,18 @@ export function RecordingScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.patientBar}>
-        <View>
+        <View style={{ flex: 1, flexShrink: 1, marginRight: spacing.sm }}>
           <Text style={[typography.bodySemibold, { color: colors.text }]}>Quick Dictation</Text>
-          <Text style={[typography.caption, { color: colors.muted }]}>
+          <Text style={[typography.caption, { color: colors.muted }]} numberOfLines={2}>
             {recorder.status === 'error' ? recorder.error : 'Hold the phone close to the patient'}
           </Text>
         </View>
-        <View style={styles.timerGroup}>
-          <Text style={[typography.heading, { color: colors.text }]}>
-            {formatTime(recorder.durationMillis)}
-          </Text>
-          <Text style={[typography.label, { color: isRecording ? colors.primary : colors.muted }]}>
+        <View style={[styles.timerGroup, { flexShrink: 0 }]}>
+          <Text style={[typography.heading, { color: colors.text }]}>{formatTime(recorder.durationMillis)}</Text>
+          <Text
+            style={[typography.label, { color: isRecording ? colors.primary : colors.muted, textAlign: 'right' }]}
+            numberOfLines={1}
+          >
             {statusLabel}
           </Text>
         </View>
@@ -153,6 +154,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.sm,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
