@@ -125,7 +125,13 @@ export function ProcessingScreen({ navigation, route }: Props) {
     }
     setStep('cleaning');
     setError(null);
-    const cleaned = await cleanupTranscript({ transcript: transcriptRef.current! });
+    let cleaned: { note_text: string; low_confidence_spans: string[] };
+    try {
+      cleaned = await cleanupTranscript({ transcript: transcriptRef.current! });
+    } catch (e) {
+      console.warn('[processing] cleanup failed, using raw transcript fallback', e);
+      cleaned = { note_text: transcriptRef.current!, low_confidence_spans: [] };
+    }
     // Auto-expand quick macros in the cleaned dictation (Augnito-style).
     const macroList = await queryClient.ensureQueryData({
       queryKey: macrosKeys.all,

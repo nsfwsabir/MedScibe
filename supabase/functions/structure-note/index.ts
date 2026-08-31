@@ -46,6 +46,19 @@ export function parseJsonResponse(text: string): unknown {
   }
 }
 
+function naiveCleanup(transcript: string): CleanupResponse {
+  let t = transcript
+    .replace(/\b(um|uh|okay so|so yeah|you know|like)\b/gi, '')
+    .replace(/\b(new paragraph|next line)\b/gi, '\n')
+    .replace(/\b(period|comma)\b/gi, (m) => (m.toLowerCase() === 'period' ? '.' : ','))
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+([.,])/g, '$1')
+    .trim();
+  // capitalize first letter of sentences naively
+  t = t.replace(/(^\w|\.\s*\w)/g, (m) => m.toUpperCase());
+  return { note_text: t, low_confidence_spans: [] };
+}
+
 export function validateCleanup(data: unknown): CleanupResponse {
   if (typeof data !== 'object' || data === null) {
     throw new Error('LLM output is not an object');
@@ -54,17 +67,9 @@ export function validateCleanup(data: unknown): CleanupResponse {
   if (typeof obj.note_text !== 'string') {
     throw new Error('LLM output missing required string field "note_text"');
   }
-  let spanArray: string[] = [];
-  if (obj.low_confidence_spans !== undefined) {
-    if (!Array.isArray(obj.low_confidence_spans)) {
-      throw new Error('LLM output "low_confidence_spans" must be an array');
-    }
-    const bad = (obj.low_confidence_spans as unknown[]).find((s) => typeof s !== 'string');
-    if (bad !== undefined) {
-      throw new Error('LLM output "low_confidence_spans" must be string[]');
-    }
-    spanArray = obj.low_confidence_spans as string[];
-  }
+  const spanArray = Array.isArray(obj.low_confidence_spans)
+    ? (obj.low_confidence_spans as unknown[]).filter((s): s is string => typeof s === 'string')
+    : [];
   return {
     note_text: obj.note_text,
     low_confidence_spans: spanArray,
@@ -122,11 +127,6 @@ export async function handleRequest(req: Request): Promise<Response> {
     return buildRequestError('Method not allowed', 405);
   }
 
-  const apiKey = Deno.env.get('GROQ_API_KEY');
-  if (!apiKey) {
-    return buildRequestError('GROQ_API_KEY is not configured', 500);
-  }
-
   let body: unknown;
   try {
     body = await req.json();
@@ -137,6 +137,16 @@ export async function handleRequest(req: Request): Promise<Response> {
   const { transcript } = (body ?? {}) as Partial<CleanupRequest>;
   if (typeof transcript !== 'string' || transcript.trim().length === 0) {
     return buildRequestError('"transcript" must be a non-empty string');
+  }
+
+  const apiKey = Deno.env.get('GROQ_API_KEY');
+  if (!apiKey) {
+    console.warn('[structure-note] GROQ_API_KEY missing — using naive cleanup fallback');
+    const fallback = naiveCleanup(transcript);
+    return new Response(JSON.stringify(fallback), {
+      status: 200,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+    });
   }
 
   try {
@@ -153,8 +163,15 @@ export async function handleRequest(req: Request): Promise<Response> {
       message.includes('Groq API') ||
       message.includes('LLM') ||
       message.includes('no message content');
-    const status = isUpstream ? 502 : 500;
-    return buildRequestError(message, status);
+    if (isUpstream) {
+      console.warn('[structure-note] Groq/LLM failed — falling back to naive cleanup');
+      const fallback = naiveCleanup(transcript);
+      return new Response(JSON.stringify(fallback), {
+        status: 200,
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
+      });
+    }
+    return buildRequestError(message, 500);
   }
 }
 

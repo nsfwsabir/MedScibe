@@ -86,24 +86,29 @@ export async function syncPendingNotes(): Promise<{ synced: number; failed: numb
           }
           await supabase.from('notes').update(patch as any).eq('id', data.id);
         } catch (cleanErr) {
-          console.warn('[offline] cleaning failed, keeping raw', cleanErr);
-          // Still try audio upload even if cleaning failed
-          if (p.audio_uri && retainOriginalAudio) {
-            try {
-              const up = await uploadAudio({
-                audioUri: p.audio_uri,
-                noteId: data.id,
-                retainOriginalAudio,
-                retentionDays,
-              });
-              if (up.audio_path) {
-                await supabase
-                  .from('notes')
-                  .update({ audio_path: up.audio_path, audio_retention_until: up.audio_retention_until } as any)
-                  .eq('id', data.id);
-              }
-            } catch {}
-          }
+          console.warn('[offline] cleaning failed, falling back to raw', cleanErr);
+          try {
+            const macros = await fetchMacros().catch(() => [] as any[]);
+            const fallbackPatch: Record<string, unknown> = {
+              note_text: expandMacros(payload.raw_transcript || '', macros as any) || null,
+              low_confidence_spans: null,
+            };
+            if (p.audio_uri && retainOriginalAudio) {
+              try {
+                const up = await uploadAudio({
+                  audioUri: p.audio_uri,
+                  noteId: data.id,
+                  retainOriginalAudio,
+                  retentionDays,
+                });
+                if (up.audio_path) {
+                  (fallbackPatch as any).audio_path = up.audio_path;
+                  (fallbackPatch as any).audio_retention_until = up.audio_retention_until;
+                }
+              } catch {}
+            }
+            await supabase.from('notes').update(fallbackPatch as any).eq('id', data.id);
+          } catch {}
         }
       } else if (p.audio_uri && retainOriginalAudio && data?.id) {
         try {
