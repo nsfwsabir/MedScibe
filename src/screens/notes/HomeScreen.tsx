@@ -164,7 +164,7 @@ export function HomeScreen({ navigation }: Props) {
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.chipsScroll}
-        style={styles.chipsScrollWrap}
+        style={styles.chipsWrap}
       >
         <Chip label="All dates" selected={dateFilter === 'all'} onPress={() => setDateFilter('all')} />
         <Chip label="Today" selected={dateFilter === 'today'} onPress={() => setDateFilter('today')} />
@@ -237,12 +237,12 @@ const styles = StyleSheet.create({
   chipsScroll: {
     flexDirection: 'row',
     gap: spacing.sm,
-    paddingRight: spacing.md,
+    paddingRight: spacing.sm,
+    alignItems: 'center',
   },
-  chipsScrollWrap: {
+  chipsWrap: {
     marginBottom: spacing.md,
-    marginHorizontal: -spacing.md,
-    paddingHorizontal: spacing.md,
+    flexGrow: 0,
   },
   listContent: {
     gap: spacing.sm,
