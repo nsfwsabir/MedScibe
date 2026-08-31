@@ -36,9 +36,9 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     paddingHorizontal: 16,
     paddingVertical: 8,
-    minHeight: 36,
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
   selected: {
     backgroundColor: colors.primary,

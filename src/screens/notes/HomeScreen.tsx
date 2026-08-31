@@ -163,12 +163,14 @@ export function HomeScreen({ navigation }: Props) {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        bounces={false}
+        overScrollMode="never"
         contentContainerStyle={styles.chipsScroll}
         style={styles.chipsWrap}
       >
-        <Chip label="All dates" selected={dateFilter === 'all'} onPress={() => setDateFilter('all')} />
-        <Chip label="Today" selected={dateFilter === 'today'} onPress={() => setDateFilter('today')} />
-        <Chip label="7 days" selected={dateFilter === 'week'} onPress={() => setDateFilter('week')} />
+        <Chip label="All dates" selected={dateFilter === 'all'} onPress={() => setDateFilter('all')} style={styles.chipSpacing} />
+        <Chip label="Today" selected={dateFilter === 'today'} onPress={() => setDateFilter('today')} style={styles.chipSpacing} />
+        <Chip label="7 days" selected={dateFilter === 'week'} onPress={() => setDateFilter('week')} style={styles.chipSpacing} />
         <Chip label="30 days" selected={dateFilter === 'month'} onPress={() => setDateFilter('month')} />
       </ScrollView>
 
@@ -236,13 +238,16 @@ const styles = StyleSheet.create({
   },
   chipsScroll: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    paddingVertical: 4,
-    paddingRight: spacing.sm,
     alignItems: 'center',
+    paddingRight: spacing.md,
+    paddingVertical: 2,
   },
   chipsWrap: {
     marginBottom: spacing.md,
+    minHeight: 40,
+  },
+  chipSpacing: {
+    marginRight: spacing.sm,
   },
   listContent: {
     gap: spacing.sm,
