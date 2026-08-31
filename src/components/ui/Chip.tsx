@@ -21,7 +21,9 @@ export function Chip({ label, selected = false, onPress, style }: Props) {
         style,
       ]}
     >
-      <Text style={[typography.bodyMedium, selected ? styles.textSelected : styles.textDefault]}>
+      <Text
+        style={[typography.bodyMedium, { lineHeight: 20, includeFontPadding: false } as any, selected ? styles.textSelected : styles.textDefault]}
+      >
         {label}
       </Text>
     </Pressable>
@@ -35,7 +37,8 @@ const styles = StyleSheet.create({
     borderColor: colors.borderSubtle,
     borderRadius: 100,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 9,
+    minHeight: 38,
     justifyContent: 'center',
     alignItems: 'center',
     flexShrink: 0,
