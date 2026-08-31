@@ -24,12 +24,13 @@ function normalizeMetering(metering: number | undefined): number {
 function WaveBar({ index, level }: { index: number; level: number }) {
   const [anim] = useState(() => new Animated.Value(0.14));
   const baseHeight = 12 + ((index * 7) % 26);
-  // per-bar variance so bars are not uniform
-  const variance = 0.62 + 0.38 * Math.sin(index * 0.95 + 1.2);
-  const duration = 110 + (index % 4) * 35;
+  // per-bar variance — deterministic so movement is driven purely by `level` (sound), not random
+  const variance = 0.58 + 0.42 * Math.sin(index * 0.95 + 1.2);
+  // slight stagger so bars don't all snap identically — feels more natural but still sound-driven
+  const duration = 90 + (index % 3) * 25;
 
   useEffect(() => {
-    const target = Math.max(0.1, Math.min(1, level * variance + (Math.random() * 0.06 - 0.03)));
+    const target = Math.max(0.08, Math.min(1, level * variance));
     Animated.timing(anim, {
       toValue: target,
       duration,
@@ -58,17 +59,7 @@ function WaveBar({ index, level }: { index: number; level: number }) {
 }
 
 export function Waveform({ metering, active }: { metering?: number; active: boolean }) {
-  const [jitter, setJitter] = useState(0);
-
-  useEffect(() => {
-    if (!active) return;
-    const id = setInterval(() => setJitter(Math.random() * 0.12), 130);
-    return () => clearInterval(id);
-  }, [active]);
-
-  const base = active ? normalizeMetering(metering) : 0.13;
-  // add jitter so even silence has small movement; clamp to 0..1
-  const level = active ? Math.max(0.14, Math.min(1, base + jitter)) : 0.13;
+  const level = active ? normalizeMetering(metering) : 0.13;
 
   return (
     <View style={styles.container}>
