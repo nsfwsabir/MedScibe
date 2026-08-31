@@ -154,25 +154,27 @@ export function HomeScreen({ navigation }: Props) {
         style={styles.search}
       />
 
-      <View style={styles.chips}>
-        <Chip label="All Notes" selected={filter === 'all'} onPress={() => setFilter('all')} />
-        <Chip label={`Drafts (${draftCount})`} selected={filter === 'draft'} onPress={() => setFilter('draft')} />
-        <Chip label="Finalized" selected={filter === 'finalized'} onPress={() => setFilter('finalized')} />
-      </View>
+      <View style={styles.filtersGroup}>
+        <View style={styles.chips}>
+          <Chip label="All Notes" selected={filter === 'all'} onPress={() => setFilter('all')} />
+          <Chip label={`Drafts (${draftCount})`} selected={filter === 'draft'} onPress={() => setFilter('draft')} />
+          <Chip label="Finalized" selected={filter === 'finalized'} onPress={() => setFilter('finalized')} />
+        </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        overScrollMode="never"
-        contentContainerStyle={styles.chipsScroll}
-        style={styles.chipsWrap}
-      >
-        <Chip label="All dates" selected={dateFilter === 'all'} onPress={() => setDateFilter('all')} style={styles.chipSpacing} />
-        <Chip label="Today" selected={dateFilter === 'today'} onPress={() => setDateFilter('today')} style={styles.chipSpacing} />
-        <Chip label="7 days" selected={dateFilter === 'week'} onPress={() => setDateFilter('week')} style={styles.chipSpacing} />
-        <Chip label="30 days" selected={dateFilter === 'month'} onPress={() => setDateFilter('month')} />
-      </ScrollView>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          overScrollMode="never"
+          contentContainerStyle={styles.chipsScroll}
+          style={styles.chipsWrap}
+        >
+          <Chip label="All dates" selected={dateFilter === 'all'} onPress={() => setDateFilter('all')} style={styles.chipSpacing} />
+          <Chip label="Today" selected={dateFilter === 'today'} onPress={() => setDateFilter('today')} style={styles.chipSpacing} />
+          <Chip label="7 days" selected={dateFilter === 'week'} onPress={() => setDateFilter('week')} style={styles.chipSpacing} />
+          <Chip label="30 days" selected={dateFilter === 'month'} onPress={() => setDateFilter('month')} />
+        </ScrollView>
+      </View>
 
       {pendingCount > 0 ? (
         <Card style={styles.pendingBanner}>
@@ -235,10 +237,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     flexShrink: 0,
   },
+  filtersGroup: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+    flexShrink: 0,
+  },
   chips: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
     flexShrink: 0,
   },
   chipsScroll: {
@@ -248,7 +254,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   chipsWrap: {
-    marginBottom: spacing.sm,
     minHeight: 40,
     flexShrink: 0,
   },
@@ -260,8 +265,8 @@ const styles = StyleSheet.create({
   },
   listContent: {
     gap: spacing.sm,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
-    flexGrow: 0,
   },
   pendingBanner: {
     flexDirection: 'row',
