@@ -189,7 +189,9 @@ export function HomeScreen({ navigation }: Props) {
         renderItem={({ item }) => (
           <NoteCard note={item} onPress={() => navigation.navigate('NoteDetail', { id: item.id })} />
         )}
+        style={styles.list}
         contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
         ListEmptyComponent={
           isLoading ? (
             <Text style={[typography.body, { color: colors.muted, textAlign: 'center' }]}>
@@ -217,6 +219,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
+    flexShrink: 0,
   },
   avatar: {
     width: 44,
@@ -230,11 +233,13 @@ const styles = StyleSheet.create({
   },
   search: {
     marginBottom: spacing.sm,
+    flexShrink: 0,
   },
   chips: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
+    flexShrink: 0,
   },
   chipsScroll: {
     flexDirection: 'row',
@@ -243,21 +248,27 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   chipsWrap: {
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     minHeight: 40,
+    flexShrink: 0,
   },
   chipSpacing: {
     marginRight: spacing.sm,
   },
+  list: {
+    flex: 1,
+  },
   listContent: {
     gap: spacing.sm,
     paddingBottom: spacing.lg,
+    flexGrow: 0,
   },
   pendingBanner: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
+    flexShrink: 0,
   },
   noteCard: {
     gap: spacing.sm,
