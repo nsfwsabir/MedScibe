@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Transcriber, TranscriptResult } from './types';
 
@@ -15,10 +16,10 @@ export class WhisperTranscriber implements Transcriber {
   readonly name = 'whisper.rn';
 
   isAvailable(): boolean {
-    return true;
+    return Constants.appOwnership !== 'expo';
   }
 
-  private async modelPath(): Promise<string> {
+  private async modelPath(onProgress?: (progress: number) => void): Promise<string> {
     const dir = FileSystem.cacheDirectory + 'whisper/';
     const file = dir + MODEL_FILENAME;
     const info = await FileSystem.getInfoAsync(file);
@@ -26,16 +27,24 @@ export class WhisperTranscriber implements Transcriber {
 
     await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
     console.log(`[whisper] downloading ${MODEL_FILENAME} (${MODEL_URL})`);
-    const result = await FileSystem.downloadAsync(MODEL_URL, file);
-    if (result.status !== 200) {
+    const callback = (progress: { totalBytesWritten: number; totalBytesExpectedToWrite: number }) => {
+      if (progress.totalBytesExpectedToWrite > 0 && onProgress) {
+        const pct = Math.round((progress.totalBytesWritten / progress.totalBytesExpectedToWrite) * 100);
+        onProgress(Math.min(99, pct));
+      }
+    };
+    const dl = FileSystem.createDownloadResumable(MODEL_URL, file, {}, callback);
+    const result = await dl.downloadAsync();
+    if (!result || result.status !== 200) {
       await FileSystem.deleteAsync(file, { idempotent: true });
-      throw new Error(`Whisper model download failed (HTTP ${result.status})`);
+      throw new Error(`Whisper model download failed (HTTP ${result?.status ?? 0})`);
     }
+    onProgress?.(100);
     return file;
   }
 
-  async ensureModel(): Promise<void> {
-    await this.modelPath();
+  async ensureModel(onProgress?: (progress: number) => void): Promise<void> {
+    await this.modelPath(onProgress);
   }
 
   async transcribe(audioUri: string, onProgress?: (progress: number) => void): Promise<TranscriptResult> {

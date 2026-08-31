@@ -24,13 +24,19 @@ Deno.test('validateCleanup accepts a well-formed payload', () => {
   assertEquals(out.low_confidence_spans, ['inaudible word']);
 });
 
-Deno.test('validateCleanup coerces malformed fields instead of throwing', () => {
-  const out = validateCleanup({
-    note_text: 42,
-    low_confidence_spans: ['ok', 7, null],
-  });
-  assertEquals(out.note_text, '');
-  assertEquals(out.low_confidence_spans, ['ok']);
+Deno.test('validateCleanup throws on malformed fields', () => {
+  assertThrows(() =>
+    validateCleanup({
+      note_text: 42 as unknown as string,
+      low_confidence_spans: ['ok', 7, null] as unknown as string[],
+    }),
+  );
+  assertThrows(() =>
+    validateCleanup({
+      note_text: 'ok',
+      low_confidence_spans: ['ok', 7] as unknown as string[],
+    }),
+  );
 });
 
 Deno.test('validateCleanup throws on non-object', () => {

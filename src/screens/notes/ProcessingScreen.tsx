@@ -12,6 +12,9 @@ import { cleanupTranscript } from '../../features/structuring/structureApi';
 import { macrosKeys } from '../../features/macros/macrosQueries';
 import { fetchMacros } from '../../features/macros/macrosApi';
 import { expandMacros } from '../../features/macros/expansion';
+import { uploadAudio, type UploadResult } from '../../features/audio/audioApi';
+import { useSettingsStore } from '../../features/settings/settingsStore';
+import { logAudit } from '../../features/audit/auditApi';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -51,11 +54,14 @@ export function ProcessingScreen({ navigation, route }: Props) {
   const startedRef = useRef(false);
   const noteIdRef = useRef<string | null>(null);
   const transcriptRef = useRef<string | null>(null);
+  const audioRef = useRef<UploadResult | null>(null);
 
   const runPipeline = async () => {
+    const { retainOriginalAudio, retentionDays } = useSettingsStore.getState();
+
     if (!noteIdRef.current) {
       setStep('transcribing');
-      await transcriber.ensureModel();
+      await transcriber.ensureModel((p) => setProgress(Math.round(p)));
       const result = await transcriber.transcribe(audioUri, setProgress);
       const note = await createNote.mutateAsync({
         status: 'draft',
@@ -65,6 +71,30 @@ export function ProcessingScreen({ navigation, route }: Props) {
       });
       noteIdRef.current = note.id;
       transcriptRef.current = result.text;
+      void logAudit(note.id, 'create');
+      // Upload original audio if retention is enabled (non-blocking for cleaning if it fails)
+      try {
+        audioRef.current = await uploadAudio({
+          audioUri,
+          noteId: note.id,
+          retainOriginalAudio,
+          retentionDays,
+        });
+      } catch {
+        audioRef.current = { audio_path: null, audio_retention_until: null };
+      }
+    } else if (retainOriginalAudio && !audioRef.current?.audio_path) {
+      // Retry case: transcription already done but audio upload failed previously
+      try {
+        audioRef.current = await uploadAudio({
+          audioUri,
+          noteId: noteIdRef.current,
+          retainOriginalAudio,
+          retentionDays,
+        });
+      } catch {
+        audioRef.current = { audio_path: null, audio_retention_until: null };
+      }
     }
     setStep('cleaning');
     setError(null);
@@ -74,14 +104,22 @@ export function ProcessingScreen({ navigation, route }: Props) {
       queryKey: macrosKeys.all,
       queryFn: fetchMacros,
     });
+    const patch: Record<string, unknown> = {
+      note_text: expandMacros(cleaned.note_text || '', macroList) || null,
+      low_confidence_spans: cleaned.low_confidence_spans.length > 0 ? cleaned.low_confidence_spans : null,
+    };
+    if (audioRef.current?.audio_path) {
+      (patch as any).audio_path = audioRef.current.audio_path;
+      (patch as any).audio_retention_until = audioRef.current.audio_retention_until;
+    } else if (!retainOriginalAudio) {
+      (patch as any).audio_path = null;
+      (patch as any).audio_retention_until = null;
+    }
     await updateNote.mutateAsync({
       id: noteIdRef.current!,
-      patch: {
-        note_text: expandMacros(cleaned.note_text || '', macroList) || null,
-        low_confidence_spans:
-          cleaned.low_confidence_spans.length > 0 ? cleaned.low_confidence_spans : null,
-      },
+      patch: patch as any,
     });
+    void logAudit(noteIdRef.current!, 'update');
   };
 
   useEffect(() => {
@@ -101,6 +139,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
   }, []);
 
   const handleRetry = async () => {
+    setError(null);
     try {
       await runPipeline();
       navigation.replace('NoteEdit', { id: noteIdRef.current! });
@@ -110,9 +149,18 @@ export function ProcessingScreen({ navigation, route }: Props) {
     }
   };
 
+  const isFallback = transcriber.name.includes('fallback');
+
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <Text style={[typography.heading, styles.title]}>Creating Your Note</Text>
+      {isFallback ? (
+        <View style={styles.fallbackBanner}>
+          <Text style={[typography.caption, { color: colors.muted }]}>
+            Running in Expo Go — transcription uses a demo note. Use a development build for on-device Whisper.
+          </Text>
+        </View>
+      ) : null}
 
       <Card style={styles.card}>
         <StepRow
@@ -211,5 +259,13 @@ const styles = StyleSheet.create({
   footerText: {
     color: colors.muted,
     textAlign: 'center',
+  },
+  fallbackBanner: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
   },
 });

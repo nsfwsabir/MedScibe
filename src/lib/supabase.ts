@@ -84,6 +84,30 @@ export type Database = {
         };
         Relationships: [];
       };
+      audit_log: {
+        Row: {
+          id: string;
+          note_id: string | null;
+          author_id: string;
+          action: 'create' | 'view' | 'update' | 'export' | 'soft_delete' | 'permanent_delete';
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          note_id?: string | null;
+          author_id?: string;
+          action: 'create' | 'view' | 'update' | 'export' | 'soft_delete' | 'permanent_delete';
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          note_id?: string | null;
+          author_id?: string;
+          action?: 'create' | 'view' | 'update' | 'export' | 'soft_delete' | 'permanent_delete';
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -93,4 +117,17 @@ export type Database = {
 const url = env.supabaseUrl || 'https://placeholder.supabase.co';
 const anonKey = env.supabaseAnonKey || 'placeholder-anon-key';
 
+if (!env.supabaseUrl || !env.supabaseAnonKey) {
+  console.warn(
+    '[supabase] EXPO_PUBLIC_SUPABASE_URL / EXPO_PUBLIC_SUPABASE_ANON_KEY not set — using placeholder. Backend calls will fail.',
+  );
+}
+
 export const supabase: SupabaseClient<Database> = createClient<Database>(url, anonKey);
+
+/** Throws if backend is not configured — use before network calls to fail fast in dev. */
+export function assertBackendConfigured(): void {
+  if (!env.supabaseUrl || !env.supabaseAnonKey) {
+    throw new Error('Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.');
+  }
+}

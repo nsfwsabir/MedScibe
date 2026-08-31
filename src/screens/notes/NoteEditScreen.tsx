@@ -18,16 +18,9 @@ import { TextInput } from '../../components/ui/TextInput';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
 import DomEditor from '../../components/ui/DomEditor';
-import type { DomEditorHandle } from '../../components/ui/DomEditor';
+import type { DomEditorHandle, FormatState } from '../../components/ui/DomEditor';
 import { useMacros } from '../../features/macros/macrosQueries';
-
-type FormatState = {
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
-  h1: boolean;
-  h2: boolean;
-};
+import { logAudit } from '../../features/audit/auditApi';
 import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -116,7 +109,7 @@ function NoteEditor({
     h2: false,
   });
 
-  const format = (action: 'bold' | 'italic' | 'underline' | 'h1' | 'h2') => {
+  const format = (action: FormatAction) => {
     editorRef.current?.applyFormat(action);
   };
 
@@ -136,6 +129,7 @@ function NoteEditor({
           status: finalize ? 'finalized' : 'draft',
         },
       });
+      void logAudit(id, 'update');
       navigation.goBack();
     } finally {
       setSaving(false);
@@ -221,7 +215,6 @@ function NoteEditor({
             onFormatStateChange={setFormatState}
             macros={macros ?? []}
             placeholder="Your dictation appears here..."
-            dom={{ matchContents: true, scrollEnabled: false } as any}
           />
           <Text style={[typography.caption, { color: colors.muted, marginTop: spacing.xs }]}>
             Tip: type a macro shortcut followed by a space to expand it.

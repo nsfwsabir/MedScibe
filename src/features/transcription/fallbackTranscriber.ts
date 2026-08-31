@@ -1,3 +1,4 @@
+import Constants from 'expo-constants';
 import { Transcriber, TranscriptResult } from './types';
 
 const DEMO_TRANSCRIPT =
@@ -16,10 +17,10 @@ export class FallbackTranscriber implements Transcriber {
   readonly name = 'fallback (Expo Go)';
 
   isAvailable(): boolean {
-    return true;
+    return Constants.appOwnership === 'expo';
   }
 
-  async ensureModel(): Promise<void> {
+  async ensureModel(_onProgress?: (progress: number) => void): Promise<void> {
     console.log('[transcription] Using fallback transcriber — whisper.rn needs a dev build');
   }
 

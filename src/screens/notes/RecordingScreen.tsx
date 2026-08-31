@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, elevation, radius, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 import { Waveform } from '../../components/screens/Waveform';
-import { BookmarkIcon, MicIcon, PauseIcon, PlayIcon, StopIcon } from '../../components/ui/icons';
+import { MicIcon, PauseIcon, PlayIcon, StopIcon } from '../../components/ui/icons';
 import { useRecorder } from '../../features/recording/useRecorder';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
@@ -21,7 +21,6 @@ function formatTime(millis: number): string {
 export function RecordingScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const recorder = useRecorder(true);
-  const [bookmarked, setBookmarked] = useState(false);
   const [stopping, setStopping] = useState(false);
 
   const handleStop = useCallback(async () => {
@@ -118,19 +117,6 @@ export function RecordingScreen({ navigation, route }: Props) {
         >
           <StopIcon />
         </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.control,
-            styles.bookmarkButton,
-            bookmarked && styles.bookmarked,
-            pressed && styles.pressed,
-          ]}
-          onPress={() => setBookmarked((b) => !b)}
-          accessibilityLabel="Bookmark"
-        >
-          <BookmarkIcon color={bookmarked ? colors.white : colors.text} />
-        </Pressable>
       </View>
 
       <View style={{ flex: 1 }} />
@@ -195,15 +181,6 @@ const styles = StyleSheet.create({
   stopButton: {
     backgroundColor: colors.primary,
     ...elevation.default,
-  },
-  bookmarkButton: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-  },
-  bookmarked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
   pressed: {
     opacity: 0.85,

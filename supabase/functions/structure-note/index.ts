@@ -51,11 +51,22 @@ export function validateCleanup(data: unknown): CleanupResponse {
     throw new Error('LLM output is not an object');
   }
   const obj = data as Record<string, unknown>;
-  const spanArray = Array.isArray(obj.low_confidence_spans)
-    ? obj.low_confidence_spans.filter((s): s is string => typeof s === 'string')
-    : [];
+  if (typeof obj.note_text !== 'string') {
+    throw new Error('LLM output missing required string field "note_text"');
+  }
+  let spanArray: string[] = [];
+  if (obj.low_confidence_spans !== undefined) {
+    if (!Array.isArray(obj.low_confidence_spans)) {
+      throw new Error('LLM output "low_confidence_spans" must be an array');
+    }
+    const bad = (obj.low_confidence_spans as unknown[]).find((s) => typeof s !== 'string');
+    if (bad !== undefined) {
+      throw new Error('LLM output "low_confidence_spans" must be string[]');
+    }
+    spanArray = obj.low_confidence_spans as string[];
+  }
   return {
-    note_text: typeof obj.note_text === 'string' ? obj.note_text : '',
+    note_text: obj.note_text,
     low_confidence_spans: spanArray,
   };
 }
@@ -138,7 +149,12 @@ export async function handleRequest(req: Request): Promise<Response> {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Cleanup failed';
     console.error('[cleanup-note]', message);
-    return buildRequestError(message, 502);
+    const isUpstream =
+      message.includes('Groq API') ||
+      message.includes('LLM') ||
+      message.includes('no message content');
+    const status = isUpstream ? 502 : 500;
+    return buildRequestError(message, status);
   }
 }
 

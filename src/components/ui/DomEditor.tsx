@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useRef, useImperativeHandle, forwardRef,
 import { StyleSheet, View } from 'react-native';
 import WebView from 'react-native-webview';
 import { colors } from '../../theme/tokens';
-import { Macro } from '../../features/macros/macrosApi';
 import { markdownToHtml } from '../../features/notes/htmlConvert';
 
+export type FormatAction = 'bold' | 'italic' | 'underline' | 'h1' | 'h2';
+
 export type DomEditorHandle = {
-  applyFormat: (...args: any[]) => void;
+  applyFormat: (action: FormatAction) => void;
   focus: () => void;
 };
 
@@ -25,7 +26,6 @@ type Props = {
   onFormatStateChange?: (state: FormatState) => void;
   onHeightChange?: (height: number) => void;
   macros?: { shortcut: string; expansion: string }[];
-  dom?: any;
 };
 
 const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
@@ -65,6 +65,7 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
   let lastHtml = '';
   let macros = [];
 
+  // Keep in sync with src/features/notes/htmlConvert.ts htmlToMarkdown — WebView cannot import TS, so logic is duplicated.
   function htmlToMarkdown(html) {
     let md = html;
     md = md.replace(/<div><br><\\/div>/gi, '\\n');
@@ -410,7 +411,7 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
 </html>`;
 
 export const DomEditor = forwardRef<DomEditorHandle, Props>(function DomEditor(
-  { value, placeholder, onChange, onFormatStateChange, onHeightChange, macros, dom },
+  { value, placeholder, onChange, onFormatStateChange, onHeightChange, macros },
   ref,
 ) {
   const webRef = useRef<any>(null);
@@ -424,10 +425,9 @@ export const DomEditor = forwardRef<DomEditorHandle, Props>(function DomEditor(
   }, []);
 
   useImperativeHandle(
-    ref as any,
+    ref,
     () => ({
-      applyFormat: (...args: any[]) => {
-        const action = args[0] as string;
+      applyFormat: (action: FormatAction) => {
         sendToWebView({ type: 'applyFormat', action });
       },
       focus: () => {

@@ -31,7 +31,7 @@ export async function fetchNotes(filters: NoteFilters = {}) {
 }
 
 export async function fetchNote(id: string) {
-  const { data, error } = await supabase.from('notes').select('*').eq('id', id).single();
+  const { data, error } = await supabase.from('notes').select('*').eq('id', id).is('deleted_at', null).single();
   if (error) throw error;
   return data;
 }

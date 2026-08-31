@@ -10,6 +10,10 @@ import { fonts, typography } from '../../theme/typography';
  *   italic     *text*
  *   heading 1  line starts with "# "
  *   heading 2  line starts with "## "
+ *
+ * NOTE: toggleWrap/toggleHeading/applyFormat are legacy string-based helpers.
+ * The active editor is DomEditor (WebView + execCommand) — see src/components/ui/DomEditor.tsx:381.
+ * These helpers are kept for tests and plainText/RichText consumers; do not use them for editing.
  */
 
 export type FormatAction = 'bold' | 'italic' | 'underline' | 'h1' | 'h2';

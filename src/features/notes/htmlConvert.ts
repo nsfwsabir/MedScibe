@@ -50,6 +50,12 @@ export function htmlToMarkdown(html: string): string {
   md = md.replace(/<i[^>]*>([\s\S]*?)<\/i>/gi, '*$1*');
   md = md.replace(/<u[^>]*>([\s\S]*?)<\/u>/gi, '__$1__');
   md = md.replace(/<[^>]*>/g, '');
+  // Clean empty markers left by execCommand edge cases (mirrors DomEditor htmlToMarkdown)
+  md = md.replace(/^\*\*\*\*\s*\n?/, '');
+  md = md.replace(/\n\*\*\*\*\s*\n?/g, '\n');
+  md = md.replace(/\*\*\s*\*\*/g, '');
+  md = md.replace(/__\s*__/g, '');
+  md = md.replace(/\*\s*\*/g, '');
   md = md.replace(/\n{3,}/g, '\n\n');
   md = md.replace(/&nbsp;/g, ' ');
   md = md.replace(/&amp;/g, '&');

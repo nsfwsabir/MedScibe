@@ -9,7 +9,7 @@ export interface Transcriber {
   /** Returns true when the engine can actually run in this build. */
   isAvailable(): boolean;
   /** Ensure any required model/weights are present. Throws on failure. */
-  ensureModel(): Promise<void>;
+  ensureModel(onProgress?: (progress: number) => void): Promise<void>;
   /** Transcribe an audio file. `onProgress` receives 0..100. */
   transcribe(audioUri: string, onProgress?: (progress: number) => void): Promise<TranscriptResult>;
 }

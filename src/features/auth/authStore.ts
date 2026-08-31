@@ -15,6 +15,8 @@ type AuthState = {
   clearError: () => void;
 };
 
+let authSubscription: { unsubscribe: () => void } | null = null;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
@@ -22,6 +24,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   bootstrap: async () => {
+    if (authSubscription) {
+      authSubscription.unsubscribe();
+      authSubscription = null;
+    }
     const { data } = await supabase.auth.getSession();
     const session = data.session ?? (await loadPersistedSession());
     if (session) {
@@ -32,7 +38,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await persistSession(session);
     }
     set({ session, user: session?.user ?? null });
-    supabase.auth.onAuthStateChange((event, newSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (newSession) {
         set({ session: newSession, user: newSession.user ?? null });
         void persistSession(newSession);
@@ -41,6 +47,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         void persistSession(null);
       }
     });
+    authSubscription = listener.subscription;
     set({ initializing: false });
   },
 

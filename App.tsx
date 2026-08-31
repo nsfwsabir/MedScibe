@@ -13,6 +13,7 @@ import {
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { useAuthStore } from './src/features/auth/authStore';
 import { useProfileStore } from './src/features/profile/profileStore';
+import { useSettingsStore } from './src/features/settings/settingsStore';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,6 +27,7 @@ const queryClient = new QueryClient({
 export default function App() {
   const bootstrap = useAuthStore((s) => s.bootstrap);
   const loadProfile = useProfileStore((s) => s.loadProfile);
+  const loadSettings = useSettingsStore((s) => s.loadSettings);
   const [fontsLoaded] = useFonts({
     Manrope_400Regular,
     Manrope_500Medium,
@@ -36,7 +38,8 @@ export default function App() {
   useEffect(() => {
     void bootstrap();
     void loadProfile();
-  }, [bootstrap, loadProfile]);
+    void loadSettings();
+  }, [bootstrap, loadProfile, loadSettings]);
 
   if (!fontsLoaded) {
     return null;
