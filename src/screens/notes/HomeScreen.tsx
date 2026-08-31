@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
@@ -160,12 +160,17 @@ export function HomeScreen({ navigation }: Props) {
         <Chip label="Finalized" selected={filter === 'finalized'} onPress={() => setFilter('finalized')} />
       </View>
 
-      <View style={styles.chips}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chipsScroll}
+        style={styles.chipsScrollWrap}
+      >
         <Chip label="All dates" selected={dateFilter === 'all'} onPress={() => setDateFilter('all')} />
         <Chip label="Today" selected={dateFilter === 'today'} onPress={() => setDateFilter('today')} />
         <Chip label="7 days" selected={dateFilter === 'week'} onPress={() => setDateFilter('week')} />
         <Chip label="30 days" selected={dateFilter === 'month'} onPress={() => setDateFilter('month')} />
-      </View>
+      </ScrollView>
 
       {pendingCount > 0 ? (
         <Card style={styles.pendingBanner}>
@@ -228,6 +233,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.sm,
     marginBottom: spacing.md,
+  },
+  chipsScroll: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingRight: spacing.md,
+  },
+  chipsScrollWrap: {
+    marginBottom: spacing.md,
+    marginHorizontal: -spacing.md,
+    paddingHorizontal: spacing.md,
   },
   listContent: {
     gap: spacing.sm,
