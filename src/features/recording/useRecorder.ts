@@ -9,7 +9,7 @@ import type { AudioRecorder, RecorderState, RecordingOptions } from 'expo-audio'
 
 export type RecorderStatus = 'starting' | 'recording' | 'paused' | 'stopped' | 'error';
 
-const POLL_INTERVAL_MS = 200;
+const POLL_INTERVAL_MS = 100;
 
 const RECORDER_OPTIONS: Partial<RecordingOptions> = {
   ...RecordingPresets.HIGH_QUALITY,
