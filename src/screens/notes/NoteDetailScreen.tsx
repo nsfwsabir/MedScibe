@@ -73,6 +73,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
       let Print: any = null;
       try {
         // @ts-ignore - optional dependency
+        // eslint-disable-next-line import/no-unresolved
         Print = await import('expo-print');
       } catch {}
       if (Print?.printToFileAsync) {
@@ -80,6 +81,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
         // Try expo-sharing
         try {
           // @ts-ignore - optional dependency
+          // eslint-disable-next-line import/no-unresolved
           const Sharing = await import('expo-sharing');
           if (await Sharing.isAvailableAsync()) {
             await Sharing.shareAsync(uri, { UTI: 'com.adobe.pdf', mimeType: 'application/pdf' });

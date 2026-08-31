@@ -17,6 +17,7 @@ import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/TextInput';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
+// eslint-disable-next-line import/no-named-as-default
 import DomEditor from '../../components/ui/DomEditor';
 import type { DomEditorHandle, FormatState } from '../../components/ui/DomEditor';
 import { useMacros } from '../../features/macros/macrosQueries';

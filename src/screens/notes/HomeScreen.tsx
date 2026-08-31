@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../../theme/tokens';
@@ -12,13 +12,17 @@ import { Note } from '../../features/notes/notesApi';
 import { plainText } from '../../features/notes/formatting';
 import { useAuthStore } from '../../features/auth/authStore';
 import { useProfileStore, getGreeting } from '../../features/profile/profileStore';
+import { usePendingNotes, useSyncPendingNotes } from '../../features/offline/usePendingNotes';
+import { Button } from '../../components/ui/Button';
+import NetInfo from '@react-native-community/netinfo';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'Home'>;
 
 type Filter = 'all' | 'draft' | 'finalized';
+type DateFilter = 'all' | 'today' | 'week' | 'month';
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -62,10 +66,63 @@ export function HomeScreen({ navigation }: Props) {
   const { profile } = useProfileStore();
   const [filter, setFilter] = useState<Filter>('all');
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const dateFrom = (() => {
+    if (dateFilter === 'all') return undefined;
+    const d = new Date();
+    if (dateFilter === 'today') return d.toISOString().slice(0, 10);
+    if (dateFilter === 'week') {
+      const w = new Date();
+      w.setDate(d.getDate() - 6);
+      return w.toISOString().slice(0, 10);
+    }
+    const m = new Date();
+    m.setDate(d.getDate() - 29);
+    return m.toISOString().slice(0, 10);
+  })();
+
   const { data: notes, isLoading } = useNotes({
     status: filter === 'all' ? undefined : filter,
-    query: query.trim() || undefined,
+    query: debouncedQuery || undefined,
+    dateFrom,
   });
+
+  const { data: pending } = usePendingNotes();
+  const syncPending = useSyncPendingNotes();
+  const [syncing, setSyncing] = useState(false);
+  const pendingCount = pending?.length ?? 0;
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await syncPending();
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      // Try to sync when screen gains focus if online
+      NetInfo.fetch().then((s) => {
+        if (s.isConnected) void syncPending().catch(() => {});
+      });
+    }, [syncPending]),
+  );
+
+  useEffect(() => {
+    const sub = NetInfo.addEventListener((s) => {
+      if (s.isConnected) void syncPending().catch(() => {});
+    });
+    return () => sub();
+  }, [syncPending]);
 
   const emailName = user?.email?.split('@')[0] ?? 'Doctor';
   const derivedName = emailName.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -102,6 +159,22 @@ export function HomeScreen({ navigation }: Props) {
         <Chip label={`Drafts (${draftCount})`} selected={filter === 'draft'} onPress={() => setFilter('draft')} />
         <Chip label="Finalized" selected={filter === 'finalized'} onPress={() => setFilter('finalized')} />
       </View>
+
+      <View style={styles.chips}>
+        <Chip label="All dates" selected={dateFilter === 'all'} onPress={() => setDateFilter('all')} />
+        <Chip label="Today" selected={dateFilter === 'today'} onPress={() => setDateFilter('today')} />
+        <Chip label="7 days" selected={dateFilter === 'week'} onPress={() => setDateFilter('week')} />
+        <Chip label="30 days" selected={dateFilter === 'month'} onPress={() => setDateFilter('month')} />
+      </View>
+
+      {pendingCount > 0 ? (
+        <Card style={styles.pendingBanner}>
+          <Text style={[typography.bodyMedium, { color: colors.text }]}>
+            {pendingCount} note{pendingCount > 1 ? 's' : ''} pending offline
+          </Text>
+          <Button label={syncing ? 'Syncing...' : 'Sync now'} variant="secondary" onPress={handleSync} disabled={syncing} />
+        </Card>
+      ) : null}
 
       <FlatList
         data={notes ?? []}
@@ -159,6 +232,12 @@ const styles = StyleSheet.create({
   listContent: {
     gap: spacing.sm,
     paddingBottom: spacing.lg,
+  },
+  pendingBanner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
   noteCard: {
     gap: spacing.sm,

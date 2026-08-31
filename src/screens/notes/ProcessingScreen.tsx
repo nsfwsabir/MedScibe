@@ -15,12 +15,13 @@ import { expandMacros } from '../../features/macros/expansion';
 import { uploadAudio, type UploadResult } from '../../features/audio/audioApi';
 import { useSettingsStore } from '../../features/settings/settingsStore';
 import { logAudit } from '../../features/audit/auditApi';
+import { enqueuePendingNote } from '../../features/offline/pendingNotes';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'Processing'>;
 
-type Step = 'transcribing' | 'cleaning';
+type Step = 'downloading' | 'transcribing' | 'cleaning';
 
 function StepRow({ label, state }: { label: string; state: 'active' | 'done' | 'queued' }) {
   return (
@@ -60,23 +61,49 @@ export function ProcessingScreen({ navigation, route }: Props) {
     const { retainOriginalAudio, retentionDays } = useSettingsStore.getState();
 
     if (!noteIdRef.current) {
-      setStep('transcribing');
+      // Stage 1: ensure model (shows downloading progress if needed)
+      setStep('downloading');
+      setProgress(0);
       await transcriber.ensureModel((p) => setProgress(Math.round(p)));
+      // Stage 2: transcription
+      setStep('transcribing');
+      setProgress(0);
       const result = await transcriber.transcribe(audioUri, setProgress);
-      const note = await createNote.mutateAsync({
-        status: 'draft',
-        visit_date: new Date().toISOString().slice(0, 10),
-        raw_transcript: result.text,
-        duration_seconds: durationSeconds,
-      });
-      noteIdRef.current = note.id;
       transcriptRef.current = result.text;
-      void logAudit(note.id, 'create');
+      let noteId: string;
+      try {
+        const note = await createNote.mutateAsync({
+          status: 'draft',
+          visit_date: new Date().toISOString().slice(0, 10),
+          raw_transcript: result.text,
+          duration_seconds: durationSeconds,
+        });
+        noteId = note.id;
+        void logAudit(note.id, 'create');
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : '';
+        const isNetwork = /network|fetch|Failed to fetch|offline/i.test(msg);
+        if (isNetwork) {
+          await enqueuePendingNote(
+            {
+              status: 'draft',
+              visit_date: new Date().toISOString().slice(0, 10),
+              raw_transcript: result.text,
+              duration_seconds: durationSeconds,
+            },
+            audioUri,
+            durationSeconds,
+          );
+          throw new Error('You appear to be offline. Note saved locally and will sync when online.');
+        }
+        throw e;
+      }
+      noteIdRef.current = noteId;
       // Upload original audio if retention is enabled (non-blocking for cleaning if it fails)
       try {
         audioRef.current = await uploadAudio({
           audioUri,
-          noteId: note.id,
+          noteId,
           retainOriginalAudio,
           retentionDays,
         });
@@ -164,10 +191,10 @@ export function ProcessingScreen({ navigation, route }: Props) {
 
       <Card style={styles.card}>
         <StepRow
-          label="Audio transcription complete"
-          state={step === 'transcribing' ? 'active' : 'done'}
+          label={step === 'downloading' ? 'Downloading model...' : 'Audio transcription'}
+          state={step === 'downloading' || step === 'transcribing' ? 'active' : 'done'}
         />
-        {step === 'transcribing' ? (
+        {step === 'downloading' || step === 'transcribing' ? (
           <View style={styles.progressWrap}>
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${progress}%` }]} />
