@@ -237,12 +237,12 @@ const styles = StyleSheet.create({
   chipsScroll: {
     flexDirection: 'row',
     gap: spacing.sm,
+    paddingVertical: 4,
     paddingRight: spacing.sm,
     alignItems: 'center',
   },
   chipsWrap: {
     marginBottom: spacing.md,
-    flexGrow: 0,
   },
   listContent: {
     gap: spacing.sm,
