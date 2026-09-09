@@ -11,10 +11,34 @@ export type RecorderStatus = 'starting' | 'recording' | 'paused' | 'stopped' | '
 
 const POLL_INTERVAL_MS = 100;
 
+// Whisper.cpp (whisper.rn) only decodes WAV 16-bit PCM (see RNWhisperJSI.cpp:parseWaveAudioData).
+// HIGH_QUALITY (m4a/AAC 44.1k stereo) always fails with "Invalid WAV file" on Android.
+// We record WAV PCM on iOS (LINEARPCM) and 16 kHz mono where possible.
+// Android MediaRecorder has no WAV/PCM outputFormat — we still request .wav/16000/mono;
+// the OS will produce m4a, which the transcriber converts via cloud fallback (see whisperTranscriber.ts).
 const RECORDER_OPTIONS: Partial<RecordingOptions> = {
-  ...RecordingPresets.HIGH_QUALITY,
+  extension: '.wav',
+  sampleRate: 16000,
+  numberOfChannels: 1,
+  bitRate: 256000,
+  android: {
+    extension: '.m4a',
+    outputFormat: 'mpeg4',
+    audioEncoder: 'aac',
+    sampleRate: 16000,
+    numberOfChannels: 1,
+  },
+  ios: {
+    outputFormat: 'lpcm' as const,
+    audioQuality: 127,
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
   isMeteringEnabled: true,
-};
+} as unknown as Partial<RecordingOptions>;
 
 let sharedRecorder: AudioRecorder | null = null;
 let sharedStarted = false;

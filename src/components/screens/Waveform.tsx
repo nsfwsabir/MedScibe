@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { colors } from '../../theme/tokens';
 
 const BAR_COUNT = 17;
@@ -21,51 +21,55 @@ function normalizeMetering(metering: number | undefined): number {
   return 0.14 + normalized * 0.86;
 }
 
-function WaveBar({ index, level }: { index: number; level: number }) {
-  const [anim] = useState(() => new Animated.Value(0.14));
-  const baseHeight = 12 + ((index * 7) % 26);
-  // per-bar variance — deterministic so movement is driven purely by `level` (sound), not random
-  const variance = 0.58 + 0.42 * Math.sin(index * 0.95 + 1.2);
-  // slight stagger so bars don't all snap identically — feels more natural but still sound-driven
-  const duration = 90 + (index % 3) * 25;
+function WaveBars({ levelRef, activeRef }: { levelRef: React.MutableRefObject<number>; activeRef: React.MutableRefObject<boolean> }) {
+  const [, setFrame] = useState(0);
+  const timeRef = useRef(Math.random() * 10);
+  const smoothRef = useRef(0.15);
 
   useEffect(() => {
-    const target = Math.max(0.08, Math.min(1, level * variance));
-    Animated.timing(anim, {
-      toValue: target,
-      duration,
-      easing: Easing.out(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  }, [level, anim, variance, duration]);
+    const interval = setInterval(() => {
+      const active = activeRef.current;
+      // advance phase — faster when recording, slow drift when idle so it's never frozen
+      timeRef.current += active ? 0.24 : 0.09;
+      const target = levelRef.current;
+      const prev = smoothRef.current;
+      smoothRef.current = prev + (target - prev) * (active ? 0.35 : 0.08);
+      setFrame((f) => f + 1);
+    }, 50);
+    return () => clearInterval(interval);
+  }, [levelRef, activeRef]);
+
+  const t = timeRef.current;
+  const smooth = smoothRef.current;
+  const active = activeRef.current;
 
   return (
-    <Animated.View
-      style={[
-        styles.bar,
-        {
-          height: anim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [baseHeight * 0.32, baseHeight * 1.75],
-          }),
-          opacity: anim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.55, 1],
-          }),
-        },
-      ]}
-    />
+    <>
+      {Array.from({ length: BAR_COUNT }, (_, i) => {
+        const baseHeight = 12 + ((i * 7) % 26);
+        // two detuned sines per bar → organic, never perfectly in sync
+        const w1 = Math.sin(t * 2.1 + i * 0.65);
+        const w2 = Math.sin(t * 3.9 + i * 1.27 + 1.0) * 0.5;
+        const motion = 0.72 + 0.28 * (w1 * 0.7 + w2 * 0.3);
+        const energy = 0.35 + smooth * 1.6;
+        const height = Math.max(4, Math.min(64, baseHeight * energy * motion));
+        const opacity = active ? 0.6 + smooth * 0.4 : 0.45;
+        return <View key={i} style={[styles.bar, { height, opacity }]} />;
+      })}
+    </>
   );
 }
 
 export function Waveform({ metering, active }: { metering?: number; active: boolean }) {
   const level = active ? normalizeMetering(metering) : 0.13;
+  const levelRef = useRef(level);
+  const activeRef = useRef(active);
+  levelRef.current = level;
+  activeRef.current = active;
 
   return (
     <View style={styles.container}>
-      {Array.from({ length: BAR_COUNT }, (_, i) => (
-        <WaveBar key={i} index={i} level={level} />
-      ))}
+      <WaveBars levelRef={levelRef} activeRef={activeRef} />
     </View>
   );
 }
