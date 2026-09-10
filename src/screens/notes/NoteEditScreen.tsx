@@ -216,9 +216,15 @@ function NoteEditor({
 
       {editorBridge ? (
         <View style={styles.toolbarContainer}>
-          <Toolbar editor={editorBridge} />
+          <Toolbar editor={editorBridge} hidden={false} />
         </View>
-      ) : null}
+      ) : (
+        <View style={styles.toolbarContainer}>
+          <Text style={[typography.caption, { color: colors.muted, textAlign: 'center', paddingVertical: 12 }]}>
+            Loading toolbar...
+          </Text>
+        </View>
+      )}
 
       <View style={[styles.actions, { paddingBottom: Math.max(insetsBottom, 12) }]}>
         <Button label="Finalize Report" onPress={() => persist(true)} disabled={saving} style={{ flex: 1 }} />
