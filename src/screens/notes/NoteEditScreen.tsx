@@ -18,7 +18,7 @@ import { TextInput } from '../../components/ui/TextInput';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
 import TenTapEditor, { TenTapEditorHandle } from '../../components/ui/TenTapEditor';
-import { Toolbar } from '@10play/tentap-editor';
+import { Toolbar, useKeyboard } from '@10play/tentap-editor';
 import { useMacros } from '../../features/macros/macrosQueries';
 import { logAudit } from '../../features/audit/auditApi';
 import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -100,6 +100,7 @@ function NoteEditor({
   const { data: macros } = useMacros();
   const editorRef = React.useRef<TenTapEditorHandle>(null);
   const [editorBridge, setEditorBridge] = React.useState<any>(null);
+  const { isKeyboardUp } = useKeyboard();
 
   // Poll for editor instance (10tap creates it async)
   React.useEffect(() => {
@@ -144,7 +145,11 @@ function NoteEditor({
     .toUpperCase();
 
   return (
-    <View style={[styles.container, { paddingTop: insetsTop + 8 }]}>
+    <KeyboardAvoidingView
+      style={[styles.container, { paddingTop: insetsTop + 8 }]}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={insetsTop + 8}
+    >
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
           <Text style={[typography.title, { color: colors.text }]}>←</Text>
@@ -153,7 +158,7 @@ function NoteEditor({
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={[styles.content, { paddingBottom: 140 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Card style={styles.patientCard}>
           <View style={styles.patientRow}>
             <View style={styles.avatar}>
@@ -211,29 +216,17 @@ function NoteEditor({
         ) : null}
       </ScrollView>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={insetsTop + 8}
-        style={styles.bottomBar}
-      >
-        {editorBridge ? (
-          <View style={styles.toolbarContainer}>
-            <Toolbar editor={editorBridge} hidden={false} />
-          </View>
-        ) : (
-          <View style={styles.toolbarContainer}>
-            <Text style={[typography.caption, { color: colors.muted, textAlign: 'center', paddingVertical: 12 }]}>
-              Loading toolbar...
-            </Text>
-          </View>
-        )}
-
-        <View style={[styles.actions, { paddingBottom: Math.max(insetsBottom, 12) }]}>
-          <Button label="Finalize Report" onPress={() => persist(true)} disabled={saving} style={{ flex: 1 }} />
-          <Button label="Save as Draft" variant="secondary" onPress={() => persist(false)} disabled={saving} style={{ flex: 1 }} />
+      {editorBridge && isKeyboardUp ? (
+        <View style={styles.toolbarContainer}>
+          <Toolbar editor={editorBridge} />
         </View>
-      </KeyboardAvoidingView>
-    </View>
+      ) : null}
+
+      <View style={[styles.actions, { paddingBottom: Math.max(insetsBottom, 12) }]}>
+        <Button label="Finalize Report" onPress={() => persist(true)} disabled={saving} style={{ flex: 1 }} />
+        <Button label="Save as Draft" variant="secondary" onPress={() => persist(false)} disabled={saving} style={{ flex: 1 }} />
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -288,9 +281,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingVertical: 4,
-  },
-  bottomBar: {
-    backgroundColor: colors.background,
   },
   noteInput: {
     minHeight: 160,

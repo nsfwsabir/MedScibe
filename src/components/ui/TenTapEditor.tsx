@@ -26,6 +26,15 @@ type Props = {
   macros?: Pick<Macro, 'shortcut' | 'expansion'>[];
 };
 
+/**
+ * Tiptap keeps the space the user just typed in the HTML
+ * (`<p>fup2w </p>`), but htmlToMarkdown() trims it — so detect the
+ * trailing space from raw HTML to trigger macro expansion.
+ */
+function htmlHasTrailingSpace(html: string): boolean {
+  return /( |&nbsp;| )(<\/[^>]+>\s*)*$/i.test(html);
+}
+
 // Keep only the tools we had before: B/I/U/H1/H2 + undo/redo
 const EDITOR_BRIDGES = [
   ...TenTapStartKit,
@@ -42,6 +51,7 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
   // We use a ref to track the last markdown we sent to avoid echo loops
   const lastMarkdownRef = useRef(value || '');
   const isApplyingMacroRef = useRef(false);
+  const hadTrailingSpaceRef = useRef(false);
 
   const editor = useEditorBridge({
     autofocus: false,
@@ -53,11 +63,41 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
         backgroundColor: colors.surface,
         // Tiptap content styling
       },
-      // Toolbar theming to match app
+      // Toolbar theming to match app.
+      // NOTE: default toolbarBody has flex:1 which collapses the FlatList
+      // to ~3px inside an auto-height parent (measured via uiautomator).
+      // Override with flex:0 + explicit height so items are visible.
+      // Same for the link EditLinkBar (flex:1 row squeezes the Insert
+      // button off-screen) — flex:0 + fixed height + minWidth:0 on input.
       toolbar: {
         toolbarBody: {
           backgroundColor: colors.surface,
           borderTopColor: colors.border,
+          borderBottomWidth: 0,
+          flex: 0,
+          height: 48,
+          minWidth: '100%',
+        },
+        linkBarTheme: {
+          addLinkContainer: {
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+            borderBottomWidth: 0,
+            flex: 0,
+            height: 52,
+            minWidth: '100%',
+            paddingHorizontal: 12,
+          },
+          linkInput: {
+            flex: 1,
+            minWidth: 0,
+            color: colors.text,
+          },
+          doneButton: {
+            flexShrink: 0,
+            marginLeft: 8,
+          },
+          placeholderTextColor: colors.muted,
         },
       } as any,
     },
@@ -91,49 +131,43 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
     if (htmlContent === undefined || htmlContent === null) return;
     if (typeof htmlContent !== 'string') return;
     // htmlContent is a string like "<p>hello</p><h1>title</h1>"
+    // NOTE: htmlToMarkdown() trims, so a just-typed trailing space never
+    // appears in `markdown` — detect it from the raw HTML instead.
     const markdown = htmlToMarkdown(htmlContent);
-    // Avoid echo if the markdown is what we already have (prevents cursor jump)
-    if (markdown === lastMarkdownRef.current) return;
+    const changed = markdown !== lastMarkdownRef.current;
+    const hasSpace = htmlHasTrailingSpace(htmlContent);
+    const spaceJustAppeared = hasSpace && !hadTrailingSpaceRef.current;
+    hadTrailingSpaceRef.current = hasSpace;
 
-    // Live macro expansion: check if the change ends with a shortcut + space
-    // We use tryExpandAtCaret which checks the character before caret is space
-    // Since we only have full-text htmlContent, we approximate by checking if the
-    // last typed char was a space and the word before it matches a macro.
-    // This mirrors the old DomEditor's handleMacroOnSpace but at the markdown level.
-    if (!isApplyingMacroRef.current && macros.length > 0) {
-      // Detect if the user just typed a space that completes a macro
-      // Compare previous markdown vs new markdown; if new ends with " " and word before space is a shortcut
-      const prev = lastMarkdownRef.current;
-      // Only attempt if the new markdown is longer and ends with space
-      // and the previous didn't already have that word expanded
-      if (markdown.length > prev.length && markdown.endsWith(' ')) {
-        // Find caret position - approximate as end of text (since useEditorContent gives whole doc)
-        // For long reports, this is a heuristic but works for the common case of typing at the end
-        const caret = markdown.length;
-        const expanded = tryExpandAtCaret(markdown, caret, macros);
-        if (expanded && expanded.text !== markdown) {
-          isApplyingMacroRef.current = true;
-          const newMarkdown = expanded.text;
-          const newHtml = markdownToHtml(newMarkdown);
-          lastMarkdownRef.current = newMarkdown;
-          // Push back to editor
-          if ((editor as any).setContent) {
-            (editor as any).setContent(newHtml);
-          }
-          // Notify parent with expanded text (without needing another round-trip)
-          onChange(newMarkdown);
-          // Reset flag after a tick
-          setTimeout(() => {
-            isApplyingMacroRef.current = false;
-          }, 0);
-          return;
+    // Live macro expansion: user just typed a space completing a shortcut.
+    // Caret approximated at end of text (covers the common typing-at-end case).
+    if (!isApplyingMacroRef.current && macros.length > 0 && hasSpace && (spaceJustAppeared || changed)) {
+      const expanded = tryExpandAtCaret(markdown, markdown.length, macros);
+      if (expanded && expanded.text !== markdown) {
+        isApplyingMacroRef.current = true;
+        // Re-append the user's trailing space so typing flow continues
+        const newMarkdown = expanded.text + ' ';
+        const newHtml = markdownToHtml(newMarkdown);
+        lastMarkdownRef.current = newMarkdown;
+        // Push back to editor
+        if ((editor as any).setContent) {
+          (editor as any).setContent(newHtml);
         }
+        // Notify parent with expanded text (without needing another round-trip)
+        onChange(newMarkdown);
+        // Reset flag after a tick
+        setTimeout(() => {
+          isApplyingMacroRef.current = false;
+        }, 50);
+        return;
       }
     }
 
-    lastMarkdownRef.current = markdown;
-    onChange(markdown);
-  }, [htmlContent, macros, onChange]);
+    if (changed) {
+      lastMarkdownRef.current = markdown;
+      onChange(markdown);
+    }
+  }, [htmlContent, macros, onChange, editor]);
 
   useImperativeHandle(
     ref,
