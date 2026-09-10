@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Platform } from 'react-native';
 import {
   AudioModule,
-  RecordingPresets,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
 } from 'expo-audio';
@@ -13,32 +13,34 @@ const POLL_INTERVAL_MS = 100;
 
 // Whisper.cpp (whisper.rn) only decodes WAV 16-bit PCM (see RNWhisperJSI.cpp:parseWaveAudioData).
 // HIGH_QUALITY (m4a/AAC 44.1k stereo) always fails with "Invalid WAV file" on Android.
-// We record WAV PCM on iOS (LINEARPCM) and 16 kHz mono where possible.
-// Android MediaRecorder has no WAV/PCM outputFormat — we still request .wav/16000/mono;
-// the OS will produce m4a, which the transcriber converts via cloud fallback (see whisperTranscriber.ts).
-const RECORDER_OPTIONS: Partial<RecordingOptions> = {
-  extension: '.wav',
-  sampleRate: 16000,
-  numberOfChannels: 1,
-  bitRate: 256000,
-  android: {
-    extension: '.m4a',
-    outputFormat: 'mpeg4',
-    audioEncoder: 'aac',
+// We record WAV PCM on iOS (LINEARPCM, .wav) and m4a/AAC 16kHz mono on Android (.m4a).
+// Android file is m4a → cloud transcription (Groq) via transcribe-audio; iOS wav → on-device whisper.rn.
+function getRecorderOptions(): Partial<RecordingOptions> {
+  const isIOS = Platform.OS === 'ios';
+  return {
+    extension: isIOS ? '.wav' : '.m4a',
     sampleRate: 16000,
     numberOfChannels: 1,
-  },
-  ios: {
-    outputFormat: 'lpcm' as const,
-    audioQuality: 127,
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    linearPCMBitDepth: 16,
-    linearPCMIsBigEndian: false,
-    linearPCMIsFloat: false,
-  },
-  isMeteringEnabled: true,
-} as unknown as Partial<RecordingOptions>;
+    bitRate: 256000,
+    android: {
+      extension: '.m4a',
+      outputFormat: 'mpeg4',
+      audioEncoder: 'aac',
+      sampleRate: 16000,
+      numberOfChannels: 1,
+    },
+    ios: {
+      outputFormat: 'lpcm' as const,
+      audioQuality: 127,
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      linearPCMBitDepth: 16,
+      linearPCMIsBigEndian: false,
+      linearPCMIsFloat: false,
+    },
+    isMeteringEnabled: true,
+  } as unknown as Partial<RecordingOptions>;
+}
 
 let sharedRecorder: AudioRecorder | null = null;
 let sharedStarted = false;
@@ -47,7 +49,7 @@ function acquireRecorder(): AudioRecorder | null {
   if (!sharedRecorder) {
     try {
       // eslint-disable-next-line import/namespace
-      sharedRecorder = new AudioModule.AudioRecorder(RECORDER_OPTIONS);
+      sharedRecorder = new AudioModule.AudioRecorder(getRecorderOptions());
     } catch {
       return null;
     }

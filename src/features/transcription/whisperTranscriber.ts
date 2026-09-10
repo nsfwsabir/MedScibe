@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { Transcriber, TranscriptResult } from './types';
 
@@ -134,52 +135,90 @@ export class WhisperTranscriber implements Transcriber {
       console.warn('[whisper] cloud transcribe failed', e);
       // Propagate to caller — don't swallow as null, so ProcessingScreen can show real cause
       // instead of silently falling back to demo text.
-      throw e instanceof Error ? e : new Error(String(e));
+      if (e instanceof Error) throw e;
+      let msg: string;
+      if (e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string') msg = (e as any).message;
+      else {
+        try {
+          msg = JSON.stringify(e);
+          if (msg === '{}' || msg === '[]') msg = String(e);
+        } catch {
+          msg = String(e);
+        }
+      }
+      throw new Error(msg && msg !== '[object Object]' ? msg : 'Cloud transcription failed with unknown error');
+    }
+  }
+
+  private async transcribeWav(wavUri: string, onProgress?: (progress: number) => void): Promise<TranscriptResult> {
+    await this.modelPath(onProgress);
+    const { initWhisper } = await import('whisper.rn');
+    const filePath = await this.modelPath();
+    const context = await initWhisper({ filePath });
+    try {
+      const { promise } = context.transcribe(wavUri, {
+        language: 'auto',
+        onProgress: onProgress,
+      });
+      const result = await promise;
+      const text = (result.result ?? '').trim();
+      if (!text) {
+        console.warn('[whisper] on-device returned empty, using demo fallback');
+        return { text: DEMO_FALLBACK_TRANSCRIPT, language: result.language ?? 'en' };
+      }
+      return { text, language: result.language };
+    } finally {
+      await context.release();
+    }
+  }
+
+  private async tryConvertM4aToWav(m4aUri: string): Promise<string | null> {
+    if (Platform.OS !== 'android') return null;
+    try {
+      // Dynamic import so iOS/web don't bundle native module
+      const { convertM4aToWav, isAudioConverterAvailable } = await import('audio-converter');
+      if (!isAudioConverterAvailable()) {
+        console.warn('[whisper] AudioConverter not available');
+        return null;
+      }
+      console.log('[whisper] converting m4a to wav for on-device', m4aUri.slice(0,60));
+      const wavUri = await convertM4aToWav(m4aUri);
+      console.log('[whisper] conversion done', wavUri);
+      return wavUri;
+    } catch (e) {
+      console.warn('[whisper] m4a->wav conversion failed', e);
+      return null;
     }
   }
 
   async transcribe(audioUri: string, onProgress?: (progress: number) => void): Promise<TranscriptResult> {
     const wantsWav = isWavUri(audioUri);
-    // For m4a (Android), prefer cloud first — on-device will always throw Invalid WAV.
-    // Cloud now throws on failure so the user sees the real error instead of demo text.
+    // For m4a (Android), prefer cloud first (fast, no 140MB model), but
+    // also support on-device via m4a->wav conversion for offline.
     if (!wantsWav) {
-      return await this.tryCloudTranscribe(audioUri, onProgress);
+      try {
+        return await this.tryCloudTranscribe(audioUri, onProgress);
+      } catch (cloudErr) {
+        console.warn('[whisper] cloud failed for m4a, trying on-device via wav conversion', cloudErr);
+        // Fall through to on-device conversion below
+        const wavUri = await this.tryConvertM4aToWav(audioUri);
+        if (wavUri) {
+          try {
+            return await this.transcribeWav(wavUri, onProgress);
+          } catch (wavErr) {
+            console.warn('[whisper] on-device wav (converted) also failed', wavErr);
+            // Re-throw original cloud error with hint
+            const msg = cloudErr instanceof Error ? cloudErr.message : String(cloudErr);
+            throw new Error(`${msg} (and on-device conversion also failed: ${wavErr instanceof Error ? wavErr.message : String(wavErr)})`);
+          }
+        }
+        throw cloudErr;
+      }
     }
 
-    // Try on-device Whisper
+    // Try on-device Whisper for wav (iOS, or Android after conversion)
     try {
-      // Ensure model for wav path; for m4a we've already tried cloud, now attempt on-device
-      // as last resort before demo. Wrap ensureModel so network failure doesn't crash.
-      try {
-        await this.modelPath(onProgress);
-      } catch (e) {
-        if (!wantsWav) {
-          // For m4a, model missing is not fatal — we already tried cloud.
-          // Fall through to demo fallback rather than throwing.
-          console.warn('[whisper] model missing for m4a fallback', e);
-          throw e;
-        }
-        throw e;
-      }
-
-      const { initWhisper } = await import('whisper.rn');
-      const filePath = await this.modelPath();
-      const context = await initWhisper({ filePath });
-      try {
-        const { promise } = context.transcribe(audioUri, {
-          language: 'auto',
-          onProgress: onProgress,
-        });
-        const result = await promise;
-        const text = (result.result ?? '').trim();
-        if (!text) {
-          console.warn('[whisper] on-device returned empty, using demo fallback');
-          return { text: DEMO_FALLBACK_TRANSCRIPT, language: result.language ?? 'en' };
-        }
-        return { text, language: result.language };
-      } finally {
-        await context.release();
-      }
+      return await this.transcribeWav(audioUri, onProgress);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn('[whisper] on-device transcribe failed:', msg, e);

@@ -1,0 +1,7 @@
+{
+  "name": "audio-converter",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "description": "Convert m4a/aac to wav PCM for whisper.rn on Android",
+  "author": "MedScribe"
+}

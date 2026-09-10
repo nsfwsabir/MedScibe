@@ -59,9 +59,26 @@ export function ProcessingScreen({ navigation, route }: Props) {
   const audioRef = useRef<UploadResult | null>(null);
 
   const formatError = (e: unknown, fallback: string): string => {
-    const raw = e instanceof Error ? e.message : String(e ?? fallback);
-    // Surface the real cause instead of generic "cleaning failed". Keep it
-    // short for the UI but include enough to diagnose model/WAV/network.
+    let raw: string;
+    if (e instanceof Error) raw = e.message;
+    else if (e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string') raw = (e as any).message;
+    else if (e && typeof e === 'object' && 'error' in e && typeof (e as any).error === 'string') raw = (e as any).error;
+    else if (typeof e === 'string') raw = e;
+    else {
+      try {
+        raw = JSON.stringify(e);
+        if (raw === '{}' || raw === '[]') raw = String(e);
+      } catch {
+        raw = String(e ?? fallback);
+      }
+    }
+    if (!raw || raw === '[object Object]' || raw === fallback) {
+      // Last resort: try to extract Supabase FunctionsHttpError details
+      const anyE = e as any;
+      const detail = anyE?.context?.error || anyE?.cause?.message || anyE?.details || '';
+      if (detail && typeof detail === 'string') raw = detail;
+      else if (!raw || raw === '[object Object]') raw = fallback;
+    }
     if (!raw || raw === fallback) return fallback;
     // Truncate very long Groq/Supabase error JSON
     return raw.length > 600 ? raw.slice(0, 600) + '…' : raw;
