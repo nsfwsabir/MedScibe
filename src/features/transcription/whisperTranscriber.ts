@@ -87,16 +87,26 @@ export class WhisperTranscriber implements Transcriber {
   private async tryCloudTranscribe(
     audioUri: string,
     onProgress?: (progress: number) => void,
-  ): Promise<TranscriptResult | null> {
+  ): Promise<TranscriptResult> {
     try {
       onProgress?.(5);
+      // Verify file exists and is readable before base64 - surfaces ENOENT quickly
+      const info = await FileSystem.getInfoAsync(audioUri);
+      if (!info.exists) {
+        console.warn('[whisper] cloud transcribe: file not found', audioUri, info);
+        throw new Error(`Audio file not found at ${audioUri}`);
+      }
       // Read file as base64 — Supabase edge function expects JSON with base64.
       // Keep payload < ~6 MB (Supabase limit) — dictations are short.
       const base64 = await FileSystem.readAsStringAsync(audioUri, { encoding: 'base64' });
+      if (!base64 || base64.length < 100) {
+        console.warn('[whisper] cloud transcribe: base64 too short', base64.length);
+        throw new Error('Recorded audio is empty or too short');
+      }
       const ext = audioUri.split('.').pop()?.toLowerCase()?.split('?')[0] ?? 'm4a';
       const mime = ext === 'wav' ? 'audio/wav' : ext === 'mp3' ? 'audio/mpeg' : 'audio/m4a';
       onProgress?.(20);
-      console.log(`[whisper] cloud transcribe fallback: invoking transcribe-audio (${mime}, ${Math.round(base64.length / 1024)} KB b64)`);
+      console.log(`[whisper] cloud transcribe: invoking transcribe-audio (${mime}, ${Math.round(base64.length / 1024)} KB b64, uri=${audioUri.slice(0,60)})`);
 
       const { data, error } = await supabase.functions.invoke<{ text: string; language?: string }>(
         'transcribe-audio',
@@ -105,30 +115,35 @@ export class WhisperTranscriber implements Transcriber {
         },
       );
       if (error) {
-        // Check error context for detail
-        const ctx: any = (error as any).context;
-        console.warn('[whisper] cloud transcribe edge error', error, ctx);
-        return null;
+        let detail = '';
+        try {
+          detail = await (error as any).context?.text?.();
+          if (!detail) detail = JSON.stringify((error as any).context ?? '').slice(0, 500);
+        } catch {}
+        const msg = `Cloud transcription failed (${(error as any).context?.status ?? 'unknown'}): ${detail || (error as any).message}`.slice(0, 600);
+        console.warn('[whisper] cloud transcribe edge error', msg, error);
+        throw new Error(msg);
       }
       if (!data || typeof data.text !== 'string' || !data.text.trim()) {
         console.warn('[whisper] cloud transcribe empty response', data);
-        return null;
+        throw new Error('Cloud transcription returned empty text');
       }
       onProgress?.(100);
       return { text: data.text.trim(), language: data.language ?? 'en' };
     } catch (e) {
       console.warn('[whisper] cloud transcribe failed', e);
-      return null;
+      // Propagate to caller — don't swallow as null, so ProcessingScreen can show real cause
+      // instead of silently falling back to demo text.
+      throw e instanceof Error ? e : new Error(String(e));
     }
   }
 
   async transcribe(audioUri: string, onProgress?: (progress: number) => void): Promise<TranscriptResult> {
     const wantsWav = isWavUri(audioUri);
     // For m4a (Android), prefer cloud first — on-device will always throw Invalid WAV.
+    // Cloud now throws on failure so the user sees the real error instead of demo text.
     if (!wantsWav) {
-      const cloud = await this.tryCloudTranscribe(audioUri, onProgress);
-      if (cloud) return cloud;
-      console.warn('[whisper] cloud unavailable for m4a, trying on-device (expected to fail) then demo fallback');
+      return await this.tryCloudTranscribe(audioUri, onProgress);
     }
 
     // Try on-device Whisper
@@ -169,26 +184,24 @@ export class WhisperTranscriber implements Transcriber {
       const msg = e instanceof Error ? e.message : String(e);
       console.warn('[whisper] on-device transcribe failed:', msg, e);
 
-      // If WAV error and we haven't tried cloud yet (wav path), try cloud now
+      // WAV failed → try cloud as last resort before giving up
       if (isWavError(e) && wantsWav) {
-        const cloud = await this.tryCloudTranscribe(audioUri, onProgress);
-        if (cloud) return cloud;
+        try {
+          const cloud = await this.tryCloudTranscribe(audioUri, onProgress);
+          if (cloud) return cloud;
+        } catch (cloudErr) {
+          console.warn('[whisper] wav cloud fallback also failed', cloudErr);
+          throw cloudErr;
+        }
       }
 
-      // Network/model failure for m4a — try cloud once more with fresh progress
-      if (!wantsWav) {
-        const cloudRetry = await this.tryCloudTranscribe(audioUri, onProgress);
-        if (cloudRetry) return cloudRetry;
-      }
-
-      // Final graceful fallback: never throw "Invalid WAV file" to UI.
-      // Return demo transcript so note creation (and cleanup) can succeed.
-      // This fixes the "Processing failed — Something went wrong while cleaning
-      // the note" dead-end in the screenshot where retry never succeeds.
       const isModelOrNetwork = /download failed|HTTP|network|fetch|Failed to fetch/i.test(msg);
       if (isWavError(e) || isModelOrNetwork) {
-        console.warn('[whisper] using demo transcript fallback so pipeline can complete');
-        // Simulate progress for UI that expects it
+        // For WAV: keep offline demo fallback so iOS can complete without internet,
+        // but surface as throw if user is online — ProcessingScreen will show retry.
+        // Check if we are online via simple heuristic: if error is network, throw.
+        if (isModelOrNetwork) throw e;
+        console.warn('[whisper] using demo transcript fallback for wav so pipeline can complete offline');
         for (let p = 30; p <= 100; p += 35) {
           onProgress?.(p);
           await new Promise((r) => setTimeout(r, 60));
@@ -196,9 +209,7 @@ export class WhisperTranscriber implements Transcriber {
         return { text: DEMO_FALLBACK_TRANSCRIPT, language: 'en' };
       }
 
-      // Unknown error — still fallback rather than hard fail, but preserve message
-      console.warn('[whisper] unknown transcribe error, falling back to demo transcript');
-      return { text: DEMO_FALLBACK_TRANSCRIPT, language: 'en' };
+      throw e;
     }
   }
 }
