@@ -37,7 +37,7 @@ function formatDate(iso: string): string {
 }
 
 function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
-  const title = note.patient_name ?? 'Untitled note';
+  const title = note.patient_name ?? 'Untitled report';
   const snippet = plainText(note.note_text ?? note.raw_transcript ?? '');
   return (
     <Pressable onPress={onPress}>
@@ -156,7 +156,7 @@ export function HomeScreen({ navigation }: Props) {
 
       <View style={styles.filtersGroup}>
         <View style={styles.chips}>
-          <Chip label="All Notes" selected={filter === 'all'} onPress={() => setFilter('all')} />
+          <Chip label="All Reports" selected={filter === 'all'} onPress={() => setFilter('all')} />
           <Chip label={`Drafts (${draftCount})`} selected={filter === 'draft'} onPress={() => setFilter('draft')} />
           <Chip label="Finalized" selected={filter === 'finalized'} onPress={() => setFilter('finalized')} />
         </View>
@@ -179,7 +179,7 @@ export function HomeScreen({ navigation }: Props) {
       {pendingCount > 0 ? (
         <Card style={styles.pendingBanner}>
           <Text style={[typography.bodyMedium, { color: colors.text }]}>
-            {pendingCount} note{pendingCount > 1 ? 's' : ''} pending offline
+            {pendingCount} report{pendingCount > 1 ? 's' : ''} pending offline
           </Text>
           <Button label={syncing ? 'Syncing...' : 'Sync now'} variant="secondary" onPress={handleSync} disabled={syncing} />
         </Card>
@@ -197,11 +197,11 @@ export function HomeScreen({ navigation }: Props) {
         ListEmptyComponent={
           isLoading ? (
             <Text style={[typography.body, { color: colors.muted, textAlign: 'center' }]}>
-              Loading notes...
+              Loading reports...
             </Text>
           ) : (
             <Text style={[typography.body, { color: colors.muted, textAlign: 'center' }]}>
-              No notes yet. Tap + to create your first one.
+              No reports yet. Tap + to create your first one.
             </Text>
           )
         }

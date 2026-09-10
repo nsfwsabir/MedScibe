@@ -462,7 +462,8 @@ export const DomEditor = forwardRef<DomEditorHandle, Props>(function DomEditor(
           }
         } else if (data.type === 'height') {
           const h = Number(data.height);
-          if (!isNaN(h) && h > 100 && h < 2000) setWebHeight(h);
+          // Allow tall reports: parent ScrollView scrolls, WebView expands to content
+          if (!isNaN(h) && h > 100 && h < 12000) setWebHeight(h);
         } else if (data.type === 'formatState' && onFormatStateChange) {
           onFormatStateChange(data.state as FormatState);
         }
@@ -482,14 +483,14 @@ export const DomEditor = forwardRef<DomEditorHandle, Props>(function DomEditor(
   }, [value, macros, sendToWebView]);
 
   return (
-    <View style={[styles.container, { height: webHeight }]}>
+    <View style={[styles.container, { height: webHeight, minHeight: 180 }]}>
       <WebView
         ref={webRef}
         originWhitelist={['*']}
-        source={{ html: htmlTemplate(placeholder || 'Your dictation appears here...') }}
+        source={{ html: htmlTemplate(placeholder || 'Your report appears here...') }}
         onMessage={onMessage}
         onLoadEnd={onLoadEnd}
-        style={styles.webview}
+        style={[styles.webview, { minHeight: 180 }]}
         scrollEnabled={false}
         showsVerticalScrollIndicator={false}
         keyboardDisplayRequiresUserAction={false}

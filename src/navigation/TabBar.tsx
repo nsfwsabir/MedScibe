@@ -20,8 +20,8 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         {tabs.map((route, index) => {
           const realIndex = state.routes.indexOf(route);
           const focused = state.index === realIndex;
-          const isNotes = route.name === 'NotesTab';
-          const label = isNotes ? 'Notes' : 'Settings';
+          const isNotes = route.name === 'NotesTab' || route.name === 'ReportsTab';
+          const label = isNotes ? 'Reports' : 'Settings';
           const active = focused ? colors.primary : colors.muted;
           const Icon = isNotes ? NotesIcon : SettingsIcon;
           return (
@@ -47,7 +47,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         })}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="New Note"
+          accessibilityLabel="New Report"
           style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
           onPress={() => setNewNoteModalVisible(true)}
         >

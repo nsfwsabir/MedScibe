@@ -69,13 +69,13 @@ export function RecordingScreen({ navigation, route }: Props) {
         <Pressable onPress={handleBack} hitSlop={8}>
           <MicIcon />
         </Pressable>
-        <Text style={[typography.title, { color: colors.text }]}>Quick Dictation</Text>
+        <Text style={[typography.title, { color: colors.text }]}>New Report</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <View style={styles.patientBar}>
         <View style={{ flex: 1, flexShrink: 1, marginRight: spacing.sm }}>
-          <Text style={[typography.bodySemibold, { color: colors.text }]}>Quick Dictation</Text>
+          <Text style={[typography.bodySemibold, { color: colors.text }]}>New Report</Text>
           <Text style={[typography.caption, { color: colors.muted }]} numberOfLines={2}>
             {recorder.status === 'error' ? recorder.error : 'Hold the phone close to the patient'}
           </Text>
@@ -96,7 +96,7 @@ export function RecordingScreen({ navigation, route }: Props) {
       </View>
 
       <Text style={[typography.body, styles.tip]}>
-        Summarize the visit in your own words. MedScribe turns it into a clean, ready-to-review note.
+        Summarize the visit in your own words. MedScribe turns it into a clean, ready-to-review report.
       </Text>
 
       <View style={styles.controlsRow}>

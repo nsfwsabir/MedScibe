@@ -1,6 +1,6 @@
 {
   "name": "medscribe",
-  "description": "MedScribe — voice-captured clinical notes for the independent doctor.",
+  "description": "MedScribe — voice-captured clinical reports for the independent doctor.",
   "license": "0BSD",
   "version": "0.1.0",
   "main": "index.ts",

@@ -30,7 +30,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
   if (!note) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Text style={[typography.body, { color: colors.muted }]}>Loading note...</Text>
+        <Text style={[typography.body, { color: colors.muted }]}>Loading report...</Text>
       </View>
     );
   }
@@ -54,7 +54,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
   const handleShare = async () => {
     if (!note) return;
     const text = plainText(note.note_text ?? note.raw_transcript ?? '');
-    const title = note.patient_name ? `Note — ${note.patient_name}` : 'Clinical note';
+    const title = note.patient_name ? `Report — ${note.patient_name}` : 'Clinical report';
     try {
       await Share.share({ message: `${title}\n\n${text}`, title });
       void logAudit(note.id, 'export');
@@ -66,7 +66,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
   const handlePdf = async () => {
     if (!note) return;
     const htmlBody = markdownToHtml(note.note_text ?? note.raw_transcript ?? '');
-    const title = note.patient_name ?? 'Clinical note';
+    const title = note.patient_name ?? 'Clinical report';
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;padding:24px;color:#24211E}h1{font-size:20px}h2{font-size:17px}</style></head><body><h2>${title}</h2><div>${htmlBody}</div></body></html>`;
     try {
       // Try expo-print if installed (optional dependency)
@@ -124,7 +124,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
           <Text style={[typography.caption, { color: colors.muted }]}>ID: #{shortId}</Text>
         </View>
         <Text style={[typography.heading, { color: colors.text }]}>
-          {note.patient_name ?? 'Untitled note'}
+          {note.patient_name ?? 'Untitled report'}
         </Text>
         <Text style={[typography.body, { color: colors.muted }]}>{metaBits.join(' · ') || 'No patient details'}</Text>
 

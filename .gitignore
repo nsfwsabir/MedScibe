@@ -40,7 +40,14 @@ supabase/.temp/
 
 # generated native folders
 /ios
-/android
+# /android is now tracked (native binaries + AudioConverter) — ignore only build outputs
+/android/build/
+/android/.gradle/
+/android/app/build/
+/android/app/.cxx/
+modules/**/build/
+modules/**/build
+modules/audio-converter/android/build/
 
 #Docs for agents
 /Design_System

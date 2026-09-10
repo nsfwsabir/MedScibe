@@ -88,7 +88,7 @@ export function SettingsScreen() {
           <View style={{ flex: 1 }}>
             <Text style={[typography.bodyMedium, { color: colors.text }]}>Retain Original Audio</Text>
             <Text style={[typography.caption, { color: colors.muted, marginTop: spacing.xs }]}>
-              Audio records are kept solely for dictation verify-checks. Note files persist securely
+              Audio records are kept solely for dictation verify-checks. Report files persist securely
               forever regardless of audio settings.
             </Text>
           </View>

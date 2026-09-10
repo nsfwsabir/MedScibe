@@ -145,9 +145,9 @@ export function ProcessingScreen({ navigation, route }: Props) {
             audioUri,
             durationSeconds,
           );
-          throw new Error('You appear to be offline. Note saved locally and will sync when online.');
+          throw new Error('You appear to be offline. Report saved locally and will sync when online.');
         }
-        throw new Error(formatError(e, 'Could not save note — check Supabase connectivity.'));
+        throw new Error(formatError(e, 'Could not save report — check Supabase connectivity.'));
       }
       noteIdRef.current = noteId;
       // Upload original audio if retention is enabled (non-blocking for cleaning if it fails)
@@ -211,7 +211,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
         patch: patch as any,
       });
     } catch (e) {
-      throw new Error(formatError(e, 'Could not finalize note. Check connection and Retry.'));
+      throw new Error(formatError(e, 'Could not finalize report. Check connection and Retry.'));
     }
     void logAudit(noteIdRef.current!, 'update');
   };
@@ -247,11 +247,11 @@ export function ProcessingScreen({ navigation, route }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
-      <Text style={[typography.heading, styles.title]}>Creating Your Note</Text>
+      <Text style={[typography.heading, styles.title]}>Creating Your Report</Text>
       {isFallback ? (
         <View style={styles.fallbackBanner}>
           <Text style={[typography.caption, { color: colors.muted }]}>
-            Running in Expo Go — transcription uses a demo note. Use a development build for on-device Whisper.
+            Running in Expo Go — transcription uses a demo report. Use a development build for on-device Whisper.
           </Text>
         </View>
       ) : null}
@@ -269,14 +269,14 @@ export function ProcessingScreen({ navigation, route }: Props) {
             <Text style={[typography.caption, { color: colors.muted }]}>{progress}%</Text>
           </View>
         ) : null}
-        <StepRow label="Cleaning up the dictation..." state={step === 'cleaning' ? 'active' : 'queued'} />
+        <StepRow label="Cleaning up the report..." state={step === 'cleaning' ? 'active' : 'queued'} />
       </Card>
 
       {step === 'cleaning' ? (
         <View style={styles.footer}>
           <Text style={[typography.bodySemibold, { color: colors.text }]}>Almost there</Text>
           <Text style={[typography.body, styles.footerText]}>
-            MedScribe is removing filler words and fixing punctuation so your note is ready to review.
+            MedScribe is removing filler words and fixing punctuation so your report is ready to review.
           </Text>
         </View>
       ) : null}

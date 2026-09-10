@@ -63,7 +63,7 @@ export function NoteEditScreen({ navigation, route }: Props) {
   if (!note) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <Text style={[typography.body, { color: colors.muted }]}>Loading note...</Text>
+        <Text style={[typography.body, { color: colors.muted }]}>Loading report...</Text>
       </View>
     );
   }
@@ -153,7 +153,7 @@ function NoteEditor({
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
           <Text style={[typography.title, { color: colors.text }]}>←</Text>
         </Pressable>
-        <Text style={[typography.title, { color: colors.text }]}>Edit Note</Text>
+        <Text style={[typography.title, { color: colors.text }]}>Edit Report</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -207,7 +207,7 @@ function NoteEditor({
 
         <Card style={styles.noteCard}>
           <Text style={[typography.bodySemibold, { color: colors.primary, marginBottom: spacing.sm }]}>
-            Note
+            Report
           </Text>
           <DomEditor
             ref={editorRef}
@@ -215,7 +215,7 @@ function NoteEditor({
             onChange={setNoteText}
             onFormatStateChange={setFormatState}
             macros={macros ?? []}
-            placeholder="Your dictation appears here..."
+            placeholder="Your report appears here..."
           />
           <Text style={[typography.caption, { color: colors.muted, marginTop: spacing.xs }]}>
             Tip: type a macro shortcut followed by a space to expand it.
@@ -238,7 +238,7 @@ function NoteEditor({
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: Math.max(insetsBottom, 12) }]}>
-        <Button label="Finalize Note" onPress={() => persist(true)} disabled={saving} style={{ flex: 1 }} />
+        <Button label="Finalize Report" onPress={() => persist(true)} disabled={saving} style={{ flex: 1 }} />
         <Button label="Save as Draft" variant="secondary" onPress={() => persist(false)} disabled={saving} style={{ flex: 1 }} />
       </View>
     </KeyboardAvoidingView>

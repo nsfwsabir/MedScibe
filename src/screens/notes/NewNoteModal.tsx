@@ -23,9 +23,9 @@ export function NewNoteModal() {
   return (
     <BottomSheet visible={visible} onClose={() => setVisible(false)}>
       <View style={styles.header}>
-        <Text style={[typography.title, { color: colors.text }]}>Start New Note</Text>
+        <Text style={[typography.title, { color: colors.text }]}>Start New Report</Text>
         <Text style={[typography.body, { color: colors.muted }]}>
-          Dictate a note and MedScribe will turn it into clean text.
+          Dictate a report and MedScribe will turn it into clean text.
         </Text>
       </View>
 
@@ -35,7 +35,7 @@ export function NewNoteModal() {
           <View style={{ flex: 1 }}>
             <Text style={[typography.bodySemibold, { color: colors.text }]}>Quick Dictation</Text>
             <Text style={[typography.caption, { color: colors.muted }]}>
-              Dictate after the visit, get a clean note
+              Dictate after the visit, get a clean report
             </Text>
           </View>
           <Text style={[typography.title, { color: colors.muted }]}>›</Text>

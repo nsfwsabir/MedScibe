@@ -82,7 +82,7 @@ export function InfoIcon({ size = 20, color = colors.muted }: IconProps) {
   );
 }
 
-export function NotesIcon({ size = 20, color = colors.muted }: IconProps) {
+export function ReportsIcon({ size = 20, color = colors.muted }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
       <Path
@@ -96,6 +96,10 @@ export function NotesIcon({ size = 20, color = colors.muted }: IconProps) {
       <Path d="M8 13.5H12" stroke={color} strokeWidth="1.5" strokeLinecap="round" />
     </Svg>
   );
+}
+
+export function NotesIcon(props: IconProps) {
+  return ReportsIcon(props);
 }
 
 export function SettingsIcon({ size = 20, color = colors.muted }: IconProps) {
