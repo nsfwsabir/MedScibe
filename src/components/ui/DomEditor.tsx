@@ -146,29 +146,53 @@ const htmlTemplate = (placeholder: string) => `<!DOCTYPE html>
     if (!sel.rangeCount) return;
     const range = sel.getRangeAt(0);
     if (!range.collapsed) return;
-    const node = range.startContainer;
-    let textBefore = '';
-    if (node.nodeType === 3) {
-      textBefore = (node.textContent || '').slice(0, range.startOffset);
-    } else {
-      textBefore = (node.textContent || '').slice(0, range.startOffset);
+    let node = range.startContainer;
+    // If caret is inside an element (not text), find the text node before it
+    if (node.nodeType !== 3) {
+      // For element nodes, try to get last child text
+      if (node.lastChild && node.lastChild.nodeType === 3) {
+        node = node.lastChild;
+      } else {
+        return;
+      }
     }
-    const m = textBefore.match(/([A-Za-z0-9_]+)$/);
+    const offset = range.startOffset;
+    const fullText = node.textContent || '';
+    // Text up to caret
+    let textBefore = fullText.slice(0, offset);
+    // User just typed a space to trigger expansion: check if ends with space
+    const endsWithSpace = textBefore.endsWith(' ') || textBefore.endsWith('\u00A0');
+    const textForMatch = endsWithSpace ? textBefore.slice(0, -1).trimEnd() : textBefore;
+    const m = textForMatch.match(/([A-Za-z0-9_]+)$/);
     if (!m) return;
     const word = m[1];
     const hit = macros.find(x => x.shortcut.toLowerCase() === word.toLowerCase());
     if (!hit) return;
     try {
-      const wordLen = word.length;
-      range.setStart(node, range.startOffset - wordLen);
-      range.setEnd(node, range.startOffset);
+      // Calculate start index of the shortcut word in textForMatch
+      const wordStartInMatch = textForMatch.length - word.length;
+      // Map back to original node offset: if we trimmed a trailing space, adjust
+      let deleteFrom = wordStartInMatch;
+      let deleteTo = offset;
+      // If endsWithSpace, deleteFrom is wordStart, deleteTo is offset (includes space)
+      // If not, deleteFrom is wordStart, deleteTo is offset
+      // For cases like "hello fup2w " where offset is after space, wordStart is position of f
+      // So we delete from wordStart to offset (word + space)
+      // For "fup2w" without trailing space (e.g., programmatic), delete just word
+      range.setStart(node, deleteFrom);
+      range.setEnd(node, deleteTo);
       range.deleteContents();
-      const textNode = document.createTextNode(hit.expansion);
+      // Insert expansion + single space to keep typing flow
+      const needsSpace = !endsWithSpace;
+      const insertText = hit.expansion + (needsSpace ? ' ' : ' ');
+      const textNode = document.createTextNode(insertText);
       range.insertNode(textNode);
       range.setStartAfter(textNode);
       range.setEndAfter(textNode);
       sel.removeAllRanges();
       sel.addRange(range);
+      // Notify change immediately so React Native gets updated markdown without stale shortcut
+      setTimeout(() => notifyChange(), 0);
     } catch(e) {}
   }
 

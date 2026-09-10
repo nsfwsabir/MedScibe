@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { supabase } from '../../lib/supabase';
 
 export type Profile = {
   displayName: string | null;
@@ -30,6 +31,28 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   hasLoaded: false,
 
   loadProfile: async () => {
+    // Try cloud first if logged in, fallback to local SecureStore
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        if (!error && data) {
+          const cloudProfile: Profile = {
+            displayName: data.display_name,
+            specialty: data.specialty,
+            phone: data.phone,
+            clinicName: data.clinic_name,
+          };
+          set({ profile: { ...defaultProfile, ...cloudProfile }, hasLoaded: true });
+          // Keep local cache in sync
+          await SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(cloudProfile));
+          return;
+        }
+      }
+    } catch {}
+    // Fallback to local
     const raw = await SecureStore.getItemAsync(PROFILE_KEY);
     if (raw) {
       try {
@@ -53,11 +76,39 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     });
     set({ profile: next });
     await SecureStore.setItemAsync(PROFILE_KEY, JSON.stringify(next));
+    // Push to cloud (best-effort, don't block UI)
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const payload = {
+          id: user.id,
+          display_name: next.displayName,
+          specialty: next.specialty,
+          phone: next.phone,
+          clinic_name: next.clinicName,
+          updated_at: new Date().toISOString(),
+        };
+        const { error } = await supabase.from('profiles').upsert(payload, { onConflict: 'id' });
+        if (error) console.warn('[profile] cloud sync failed', error.message);
+      }
+    } catch (e) {
+      console.warn('[profile] cloud sync error', e);
+    }
   },
 
   clearProfile: async () => {
     set({ profile: defaultProfile });
     await SecureStore.deleteItemAsync(PROFILE_KEY);
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from('profiles').delete().eq('id', user.id);
+      }
+    } catch {}
   },
 }));
 
