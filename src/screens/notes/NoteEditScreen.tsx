@@ -146,7 +146,8 @@ function NoteEditor({
   return (
     <KeyboardAvoidingView
       style={[styles.container, { paddingTop: insetsTop + 8 }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={insetsTop + 8}
     >
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
