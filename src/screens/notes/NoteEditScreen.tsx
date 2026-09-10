@@ -1,4 +1,4 @@
-import React, { ReactNode, useRef, useState } from 'react';
+import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   KeyboardAvoidingView,
@@ -17,15 +17,12 @@ import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/TextInput';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
-// eslint-disable-next-line import/no-named-as-default
-import DomEditor from '../../components/ui/DomEditor';
-import type { DomEditorHandle, FormatState } from '../../components/ui/DomEditor';
+import TenTapEditor, { TenTapEditorHandle } from '../../components/ui/TenTapEditor';
+import { Toolbar } from '@10play/tentap-editor';
 import { useMacros } from '../../features/macros/macrosQueries';
 import { logAudit } from '../../features/audit/auditApi';
 import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
-
-import type { FormatAction } from '../../features/notes/formatting';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'NoteEdit'>;
 
@@ -100,19 +97,21 @@ function NoteEditor({
   const [noteText, setNoteText] = useState(note?.note_text ?? note?.raw_transcript ?? '');
   const [saving, setSaving] = useState(false);
 
-  const editorRef = useRef<DomEditorHandle>(null);
   const { data: macros } = useMacros();
-  const [formatState, setFormatState] = useState<FormatState>({
-    bold: false,
-    italic: false,
-    underline: false,
-    h1: false,
-    h2: false,
-  });
+  const editorRef = React.useRef<TenTapEditorHandle>(null);
+  const [editorBridge, setEditorBridge] = React.useState<any>(null);
 
-  const format = (action: FormatAction) => {
-    editorRef.current?.applyFormat(action);
-  };
+  // Poll for editor instance (10tap creates it async)
+  React.useEffect(() => {
+    const id = setInterval(() => {
+      const e = editorRef.current?.editor;
+      if (e) {
+        setEditorBridge(e);
+        clearInterval(id);
+      }
+    }, 200);
+    return () => clearInterval(id);
+  }, []);
 
   const persist = async (finalize: boolean) => {
     if (!note) return;
@@ -157,27 +156,6 @@ function NoteEditor({
         <View style={{ width: 24 }} />
       </View>
 
-      <View style={styles.toolbarFixed}>
-        {TOOLBAR_ACTIONS.map(({ action, label, style }) => {
-          const active =
-            (action === 'bold' && formatState.bold) ||
-            (action === 'italic' && formatState.italic) ||
-            (action === 'underline' && formatState.underline) ||
-            (action === 'h1' && formatState.h1) ||
-            (action === 'h2' && formatState.h2);
-          return (
-            <Pressable
-              key={action}
-              onPress={() => format(action)}
-              style={[styles.toolButton, active && styles.toolButtonActive]}
-              hitSlop={4}
-            >
-              <Text style={[typography.bodySemibold, styles.toolLabel, style, active && styles.toolLabelActive]}>{label}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Card style={styles.patientCard}>
           <View style={styles.patientRow}>
@@ -209,16 +187,15 @@ function NoteEditor({
           <Text style={[typography.bodySemibold, { color: colors.primary, marginBottom: spacing.sm }]}>
             Report
           </Text>
-          <DomEditor
+          <TenTapEditor
             ref={editorRef}
             value={noteText}
             onChange={setNoteText}
-            onFormatStateChange={setFormatState}
             macros={macros ?? []}
             placeholder="Your report appears here..."
           />
           <Text style={[typography.caption, { color: colors.muted, marginTop: spacing.xs }]}>
-            Tip: type a macro shortcut followed by a space to expand it.
+            Tip: type a macro shortcut followed by a space to expand it. Use the toolbar for formatting.
           </Text>
         </Card>
 
@@ -236,6 +213,12 @@ function NoteEditor({
           </Card>
         ) : null}
       </ScrollView>
+
+      {editorBridge ? (
+        <View style={styles.toolbarContainer}>
+          <Toolbar editor={editorBridge} />
+        </View>
+      ) : null}
 
       <View style={[styles.actions, { paddingBottom: Math.max(insetsBottom, 12) }]}>
         <Button label="Finalize Report" onPress={() => persist(true)} disabled={saving} style={{ flex: 1 }} />
@@ -291,68 +274,11 @@ const styles = StyleSheet.create({
   noteCard: {
     padding: spacing.md,
   },
-  toolbarFixed: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+  toolbarContainer: {
     backgroundColor: colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-  },
-  toolButton: {
-    width: 40,
-    height: 36,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toolButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  toolLabel: {
-    color: colors.primary,
-  },
-  toolLabelActive: {
-    color: colors.white,
-  },
-  toolBold: {
-    fontWeight: '800',
-  },
-  toolItalic: {
-    fontStyle: 'italic',
-  },
-  toolUnderline: {
-    textDecorationLine: 'underline',
-  },
-  toolbarDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: colors.border,
-    marginHorizontal: spacing.xs,
-  },
-  macrosButton: {
-    height: 36,
-    paddingHorizontal: spacing.sm + 2,
-    borderRadius: radius.md,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  macrosLabel: {
-    color: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: 4,
   },
   noteInput: {
     minHeight: 160,
@@ -422,11 +348,3 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
 });
-
-const TOOLBAR_ACTIONS: { action: FormatAction; label: string; style?: object }[] = [
-  { action: 'bold', label: 'B', style: styles.toolBold },
-  { action: 'italic', label: 'I', style: styles.toolItalic },
-  { action: 'underline', label: 'U', style: styles.toolUnderline },
-  { action: 'h1', label: 'H1' },
-  { action: 'h2', label: 'H2' },
-];
