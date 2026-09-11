@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
+import { BottomSheet } from '../../components/ui/BottomSheet';
 import { Card } from '../../components/ui/Card';
 import { Chip } from '../../components/ui/Chip';
 import { Badge } from '../../components/ui/Badge';
 import { TextInput } from '../../components/ui/TextInput';
+import { ChevronDownIcon, FilterIcon } from '../../components/ui/icons';
 import { useNotes } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
 import { plainText } from '../../features/notes/formatting';
@@ -85,6 +87,7 @@ export function HomeScreen({ navigation }: Props) {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [filtersVisible, setFiltersVisible] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQuery(query.trim()), 300);
@@ -147,6 +150,11 @@ export function HomeScreen({ navigation }: Props) {
   const greeting = getGreeting();
   const first = displayName[0]?.toUpperCase() ?? 'D';
   const draftCount = notes?.filter((n) => n.status === 'draft').length ?? 0;
+  const activeFilterCount = (filter === 'all' ? 0 : 1) + (dateFilter === 'all' ? 0 : 1);
+  const clearFilters = () => {
+    setFilter('all');
+    setDateFilter('all');
+  };
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 12 }]}>
@@ -171,27 +179,42 @@ export function HomeScreen({ navigation }: Props) {
         style={styles.search}
       />
 
-      <View style={styles.filtersGroup}>
-        <View style={styles.chips}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Filters"
+        onPress={() => setFiltersVisible(true)}
+        style={({ pressed }) => [styles.filtersButton, pressed && styles.filtersButtonPressed]}
+      >
+        <FilterIcon size={20} color={activeFilterCount > 0 ? colors.primary : colors.text} />
+        <Text style={[typography.bodySemibold, { color: activeFilterCount > 0 ? colors.primary : colors.text }]}>
+          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+        </Text>
+        <ChevronDownIcon size={18} color={activeFilterCount > 0 ? colors.primary : colors.text} />
+      </Pressable>
+
+      <BottomSheet visible={filtersVisible} onClose={() => setFiltersVisible(false)}>
+        <Text style={[typography.bodySemibold, { color: colors.text }]}>Filter reports</Text>
+
+        <Text style={[typography.caption, { color: colors.muted }]}>STATUS</Text>
+        <View style={styles.sheetChips}>
           <Chip label="All Reports" selected={filter === 'all'} onPress={() => setFilter('all')} />
           <Chip label={`Drafts (${draftCount})`} selected={filter === 'draft'} onPress={() => setFilter('draft')} />
           <Chip label="Finalized" selected={filter === 'finalized'} onPress={() => setFilter('finalized')} />
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          bounces={false}
-          overScrollMode="never"
-          contentContainerStyle={styles.chipsScroll}
-          style={styles.chipsWrap}
-        >
-          <Chip label="All dates" selected={dateFilter === 'all'} onPress={() => setDateFilter('all')} style={styles.chipSpacing} />
-          <Chip label="Today" selected={dateFilter === 'today'} onPress={() => setDateFilter('today')} style={styles.chipSpacing} />
-          <Chip label="7 days" selected={dateFilter === 'week'} onPress={() => setDateFilter('week')} style={styles.chipSpacing} />
+        <Text style={[typography.caption, { color: colors.muted }]}>DATE</Text>
+        <View style={styles.sheetChips}>
+          <Chip label="All dates" selected={dateFilter === 'all'} onPress={() => setDateFilter('all')} />
+          <Chip label="Today" selected={dateFilter === 'today'} onPress={() => setDateFilter('today')} />
+          <Chip label="7 days" selected={dateFilter === 'week'} onPress={() => setDateFilter('week')} />
           <Chip label="30 days" selected={dateFilter === 'month'} onPress={() => setDateFilter('month')} />
-        </ScrollView>
-      </View>
+        </View>
+
+        <View style={styles.sheetActions}>
+          <Button label="Clear" variant="ghost" onPress={clearFilters} disabled={activeFilterCount === 0} style={{ flex: 1 }} />
+          <Button label="Done" onPress={() => setFiltersVisible(false)} style={{ flex: 1 }} />
+        </View>
+      </BottomSheet>
 
       {pendingCount > 0 ? (
         <Card style={styles.pendingBanner}>
@@ -254,28 +277,32 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     flexShrink: 0,
   },
-  filtersGroup: {
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-    flexShrink: 0,
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    flexShrink: 0,
-  },
-  chipsScroll: {
+  filtersButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingRight: spacing.md,
-    paddingVertical: 2,
-  },
-  chipsWrap: {
-    minHeight: 40,
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: 12,
+    marginBottom: spacing.md,
+    marginHorizontal: -spacing.md,
+    paddingHorizontal: spacing.md,
     flexShrink: 0,
   },
-  chipSpacing: {
-    marginRight: spacing.sm,
+  filtersButtonPressed: {
+    opacity: 0.7,
+  },
+  sheetChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
   },
   list: {
     flex: 1,

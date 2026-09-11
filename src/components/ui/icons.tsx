@@ -102,6 +102,35 @@ export function NotesIcon(props: IconProps) {
   return ReportsIcon(props);
 }
 
+export function FilterIcon({ size = 20, color = colors.primary }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 5h16l-6.5 8v5.5L10 21v-8L4 5Z"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <Path d="M9 16h6" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export function ChevronDownIcon({ size = 18, color = colors.text }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 9l6 6 6-6"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
 export function SettingsIcon({ size = 20, color = colors.muted }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
