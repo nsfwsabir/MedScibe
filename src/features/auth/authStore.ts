@@ -29,13 +29,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authSubscription = null;
     }
     const { data } = await supabase.auth.getSession();
-    const session = data.session ?? (await loadPersistedSession());
+    let session = data.session ?? (await loadPersistedSession());
     if (session) {
-      await supabase.auth.setSession({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      });
-      await persistSession(session);
+      try {
+        // Refreshes the access token if expired; throws on dead refresh token.
+        const { data: refreshed, error } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        if (error) throw error;
+        session = refreshed.session;
+        await persistSession(session);
+      } catch (e) {
+        // Zombie session (expired/revoked tokens): drop it so the user gets
+        // the login screen instead of cryptic RLS failures on every write.
+        console.warn('[auth] stored session invalid, clearing', e);
+        session = null;
+        await persistSession(null);
+      }
     }
     set({ session, user: session?.user ?? null });
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {

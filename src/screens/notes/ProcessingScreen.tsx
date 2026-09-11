@@ -16,6 +16,8 @@ import { uploadAudio, type UploadResult } from '../../features/audio/audioApi';
 import { useSettingsStore } from '../../features/settings/settingsStore';
 import { logAudit } from '../../features/audit/auditApi';
 import { enqueuePendingNote } from '../../features/offline/pendingNotes';
+import { supabase } from '../../lib/supabase';
+import { useAuthStore } from '../../features/auth/authStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -80,6 +82,11 @@ export function ProcessingScreen({ navigation, route }: Props) {
       else if (!raw || raw === '[object Object]') raw = fallback;
     }
     if (!raw || raw === fallback) return fallback;
+    // Map cryptic PostgREST RLS errors (almost always a dead session) to
+    // something actionable instead of "row-level security policy".
+    if (/row-level security|RLS|policy for table|permission denied|JWT|token/i.test(raw)) {
+      return 'Permission denied — your session likely expired. Sign out and sign in again, then retry.';
+    }
     // Truncate very long Groq/Supabase error JSON
     return raw.length > 600 ? raw.slice(0, 600) + '…' : raw;
   };
@@ -121,9 +128,20 @@ export function ProcessingScreen({ navigation, route }: Props) {
         throw new Error('Transcription returned empty text. Try recording a longer, louder dictation.');
       }
       transcriptRef.current = result.text;
+      // Guard the DB writes: a zombie session (expired/revoked tokens) makes
+      // every insert fail with "row-level security policy". Fail fast here
+      // with a clear re-login prompt instead of a cryptic RLS message.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.user) {
+        await useAuthStore.getState().signOut().catch(() => undefined);
+        throw new Error('Your session expired. Please sign in again, then retry.');
+      }
       let noteId: string;
       try {
         const note = await createNote.mutateAsync({
+          author_id: session.user.id,
           status: 'draft',
           visit_date: new Date().toISOString().slice(0, 10),
           raw_transcript: result.text,

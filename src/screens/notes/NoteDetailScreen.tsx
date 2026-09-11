@@ -8,7 +8,6 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { useNote, useSoftDeleteNote } from '../../features/notes/notesQueries';
 import { RichText, plainText } from '../../features/notes/formatting';
-import { useAuthStore } from '../../features/auth/authStore';
 import { logAudit } from '../../features/audit/auditApi';
 import { markdownToHtml } from '../../features/notes/htmlConvert';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -21,7 +20,6 @@ export function NoteDetailScreen({ navigation, route }: Props) {
   const { id } = route.params;
   const { data: note } = useNote(id);
   const softDelete = useSoftDeleteNote();
-  const signOut = useAuthStore((s) => s.signOut);
 
   useEffect(() => {
     if (note?.id) void logAudit(note.id, 'view');
@@ -102,16 +100,8 @@ export function NoteDetailScreen({ navigation, route }: Props) {
         <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
           <Text style={[typography.title, { color: colors.text }]}>←</Text>
         </Pressable>
-        <View style={styles.headerRight}>
-          <Pressable
-            hitSlop={8}
-            onPress={async () => {
-              await signOut();
-            }}
-          >
-            <Text style={[typography.bodyMedium, { color: colors.muted }]}>Sign out</Text>
-          </Pressable>
-        </View>
+        <Text style={[typography.title, { color: colors.text }]}>Report</Text>
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -125,7 +115,10 @@ export function NoteDetailScreen({ navigation, route }: Props) {
         <Text style={[typography.body, { color: colors.muted }]}>{metaBits.join(' · ') || 'No patient details'}</Text>
 
         <Card style={styles.sectionCard}>
-          <RichText value={(note.note_text ?? '—').replace(/\s+$/, '')} baseStyle={{ color: colors.text }} />
+          <RichText
+            value={(note.note_text ?? note.raw_transcript ?? '—').replace(/\s+$/, '')}
+            baseStyle={{ color: colors.text }}
+          />
         </Card>
       </ScrollView>
 
@@ -150,10 +143,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.sm,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    gap: spacing.md,
   },
   scroll: {
     flex: 1,
