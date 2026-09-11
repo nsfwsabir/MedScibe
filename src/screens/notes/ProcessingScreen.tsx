@@ -60,6 +60,14 @@ export function ProcessingScreen({ navigation, route }: Props) {
   const transcriptRef = useRef<string | null>(null);
   const audioRef = useRef<UploadResult | null>(null);
 
+  const localToday = (): string => {
+    // Local calendar date, not UTC: toISOString() can shift the day by timezone.
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  };
+
   const formatError = (e: unknown, fallback: string): string => {
     let raw: string;
     if (e instanceof Error) raw = e.message;
@@ -143,7 +151,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
         const note = await createNote.mutateAsync({
           author_id: session.user.id,
           status: 'draft',
-          visit_date: new Date().toISOString().slice(0, 10),
+          visit_date: localToday(),
           raw_transcript: result.text,
           duration_seconds: durationSeconds,
         });
@@ -156,7 +164,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
           await enqueuePendingNote(
             {
               status: 'draft',
-              visit_date: new Date().toISOString().slice(0, 10),
+              visit_date: localToday(),
               raw_transcript: result.text,
               duration_seconds: durationSeconds,
             },

@@ -26,25 +26,20 @@ type Props = NativeStackScreenProps<NotesStackParamList, 'Home'>;
 type Filter = 'all' | 'draft' | 'finalized';
 type DateFilter = 'all' | 'today' | 'week' | 'month';
 
-function formatDate(iso: string): string {
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+/** Relative day + time: "Today, 12:37 pm" / "Yesterday, 4:05 pm" / "9 Sept, 10:00 am". */
+function formatRelativeDateTime(iso: string): string {
   const d = new Date(iso);
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) {
-    return `Today, ${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
-  }
-  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-function formatDateTime(iso: string): string {
-  return new Date(iso).toLocaleString([], {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
+  const time = formatTime(iso);
+  if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
+  if (d.toDateString() === yesterday.toDateString()) return `Yesterday, ${time}`;
+  return `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
 }
 
 function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
@@ -52,7 +47,7 @@ function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
   const snippet = plainText(note.note_text ?? note.raw_transcript ?? '');
   const edited =
     note.updated_at && note.created_at && Math.abs(new Date(note.updated_at).getTime() - new Date(note.created_at).getTime()) > 60_000
-      ? formatDateTime(note.updated_at)
+      ? formatRelativeDateTime(note.updated_at)
       : null;
   return (
     <Pressable onPress={onPress}>
@@ -66,11 +61,8 @@ function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
         <Text style={[typography.body, styles.cardSnippet]} numberOfLines={2}>
           {snippet}
         </Text>
-        <View style={styles.cardFooter}>
-          <Text style={[typography.caption, { color: colors.muted }]}>{formatDate(note.visit_date)}</Text>
-        </View>
-        <Text style={[typography.caption, { color: colors.mutedLight }]}>
-          Created {formatDateTime(note.created_at)}
+        <Text style={[typography.caption, { color: colors.muted }]}>
+          Created {formatRelativeDateTime(note.created_at)}
           {edited ? `  ·  Edited ${edited}` : ''}
         </Text>
       </Card>
@@ -334,10 +326,5 @@ const styles = StyleSheet.create({
   },
   cardSnippet: {
     color: colors.muted,
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
   },
 });

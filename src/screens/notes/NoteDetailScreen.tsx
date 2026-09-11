@@ -34,24 +34,35 @@ export function NoteDetailScreen({ navigation, route }: Props) {
   }
 
   const shortId = note.id.slice(0, 5).toUpperCase();
+  // visit_date is date-only ("YYYY-MM-DD"): parse as a LOCAL date, otherwise
+  // new Date() treats it as UTC midnight and the day shifts by timezone.
+  const parseLocalDate = (iso: string): Date => {
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    return new Date(iso);
+  };
   const metaBits = [
     note.patient_age != null ? `${note.patient_age}yo` : null,
     note.patient_sex,
-    `Visit: ${new Date(note.visit_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`,
+    `Visit: ${parseLocalDate(note.visit_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`,
   ].filter(Boolean);
 
-  const fmtDateTime = (iso: string) =>
-    new Date(iso).toLocaleString([], {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  const createdAt = note.created_at ? fmtDateTime(note.created_at) : null;
+  const fmtTime = (iso: string) =>
+    new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  /** Relative day + time: "Today, 12:37 pm" / "Yesterday, 4:05 pm" / "9 Sept 2026, 10:00 am". */
+  const fmtRelativeDateTime = (iso: string): string => {
+    const d = new Date(iso);
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    if (d.toDateString() === today.toDateString()) return `Today, ${fmtTime(iso)}`;
+    if (d.toDateString() === yesterday.toDateString()) return `Yesterday, ${fmtTime(iso)}`;
+    return `${d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}, ${fmtTime(iso)}`;
+  };
+  const createdAt = note.created_at ? fmtRelativeDateTime(note.created_at) : null;
   const editedAt =
     note.updated_at && note.created_at && Math.abs(new Date(note.updated_at).getTime() - new Date(note.created_at).getTime()) > 60_000
-      ? fmtDateTime(note.updated_at)
+      ? fmtRelativeDateTime(note.updated_at)
       : null;
 
   const handleDelete = () => {
@@ -88,7 +99,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
     if (!note) return;
     const htmlBody = markdownToHtml(note.note_text ?? note.raw_transcript ?? '');
     const title = note.patient_name ?? 'Clinical report';
-    const meta = `${note.patient_age != null ? `${note.patient_age}yo` : ''}${note.patient_sex ? ` · ${note.patient_sex}` : ''} · Visit: ${new Date(note.visit_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    const meta = `${note.patient_age != null ? `${note.patient_age}yo` : ''}${note.patient_sex ? ` · ${note.patient_sex}` : ''} · Visit: ${parseLocalDate(note.visit_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;padding:24px;color:#24211E;line-height:1.5}h1{font-size:20px}h2{font-size:17px}.meta{color:#66615D;font-size:13px;margin-bottom:16px}</style></head><body><h2>${title}</h2><div class="meta">${meta}</div><div>${htmlBody}</div></body></html>`;
     try {
       const Print = await import('expo-print');
