@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, TextStyle } from 'react-native';
+import { StyleSheet, Text, TextStyle, View } from 'react-native';
 import { colors } from '../../theme/tokens';
 import { fonts, typography } from '../../theme/typography';
 
@@ -247,27 +247,36 @@ export function RichText({
 }) {
   const base: TextStyle = { ...typography.body, ...baseStyle };
   const lines = parseRichText(value);
+  // Android truncates very long single-Text layouts — chunk lines into
+  // separate Text blocks so long reports never get cut off.
+  const CHUNK = 40;
+  const chunks: Line[][] = [];
+  for (let i = 0; i < lines.length; i += CHUNK) chunks.push(lines.slice(i, i + CHUNK));
   return (
-    <Text style={base}>
-      {lines.map((line, li) => (
-        <React.Fragment key={li}>
-          {line.prefix ? <Text style={line.level > 0 ? styles.heading : undefined}>{line.prefix}</Text> : null}
-          {line.segments.map((seg, si) => (
-            <Text
-              key={si}
-              style={[
-                line.level > 0 ? styles.heading : undefined,
-                line.quote ? styles.quote : undefined,
-                segmentStyle(seg),
-              ]}
-            >
-              {seg.text}
-            </Text>
+    <View>
+      {chunks.map((chunk, ci) => (
+        <Text key={ci} style={base}>
+          {chunk.map((line, li) => (
+            <React.Fragment key={li}>
+              {line.prefix ? <Text style={line.level > 0 ? styles.heading : undefined}>{line.prefix}</Text> : null}
+              {line.segments.map((seg, si) => (
+                <Text
+                  key={si}
+                  style={[
+                    line.level > 0 ? styles.heading : undefined,
+                    line.quote ? styles.quote : undefined,
+                    segmentStyle(seg),
+                  ]}
+                >
+                  {seg.text}
+                </Text>
+              ))}
+              {li < chunk.length - 1 ? '\n' : null}
+            </React.Fragment>
           ))}
-          {li < lines.length - 1 ? '\n' : null}
-        </React.Fragment>
+        </Text>
       ))}
-    </Text>
+    </View>
   );
 }
 

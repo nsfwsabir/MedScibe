@@ -36,9 +36,22 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatDateTime(iso: string): string {
+  return new Date(iso).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
   const title = note.patient_name ?? 'Untitled report';
   const snippet = plainText(note.note_text ?? note.raw_transcript ?? '');
+  const edited =
+    note.updated_at && note.created_at && Math.abs(new Date(note.updated_at).getTime() - new Date(note.created_at).getTime()) > 60_000
+      ? formatDateTime(note.updated_at)
+      : null;
   return (
     <Pressable onPress={onPress}>
       <Card style={styles.noteCard}>
@@ -54,6 +67,10 @@ function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
         <View style={styles.cardFooter}>
           <Text style={[typography.caption, { color: colors.muted }]}>{formatDate(note.visit_date)}</Text>
         </View>
+        <Text style={[typography.caption, { color: colors.mutedLight }]}>
+          Created {formatDateTime(note.created_at)}
+          {edited ? `  ·  Edited ${edited}` : ''}
+        </Text>
       </Card>
     </Pressable>
   );

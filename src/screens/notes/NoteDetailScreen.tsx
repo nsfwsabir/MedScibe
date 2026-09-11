@@ -40,6 +40,20 @@ export function NoteDetailScreen({ navigation, route }: Props) {
     `Visit: ${new Date(note.visit_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`,
   ].filter(Boolean);
 
+  const fmtDateTime = (iso: string) =>
+    new Date(iso).toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  const createdAt = note.created_at ? fmtDateTime(note.created_at) : null;
+  const editedAt =
+    note.updated_at && note.created_at && Math.abs(new Date(note.updated_at).getTime() - new Date(note.created_at).getTime()) > 60_000
+      ? fmtDateTime(note.updated_at)
+      : null;
+
   const handleDelete = () => {
     Alert.alert('Delete report?', 'This report will be permanently deleted. This cannot be undone.', [
       { text: 'Cancel', style: 'cancel' },
@@ -122,6 +136,12 @@ export function NoteDetailScreen({ navigation, route }: Props) {
           {note.patient_name ?? 'Untitled report'}
         </Text>
         <Text style={[typography.body, { color: colors.muted }]}>{metaBits.join(' · ') || 'No patient details'}</Text>
+        {createdAt ? (
+          <Text style={[typography.caption, { color: colors.mutedLight }]}>
+            Created {createdAt}
+            {editedAt ? `  ·  Last edited ${editedAt}` : ''}
+          </Text>
+        ) : null}
 
         <Card style={styles.sectionCard}>
           <RichText

@@ -38,7 +38,13 @@ export function markdownToHtml(md: string): string {
 
   // Newlines to <br> or divs - use <div> per line for better editing.
   // Group list lines into real <ul>/<ol> so Tiptap keeps them as lists.
+  // Leading tabs/spaces are preserved as &nbsp; so indentation (e.g. in
+  // bulleted points) survives the HTML round-trip which collapses spaces.
   // Keep <h*> and <blockquote> as is, wrap other lines
+  const indentToNbsp = (ws: string): string => {
+    const n = ws.replace(/\t/g, '    ').length;
+    return '&nbsp;'.repeat(Math.min(n, 12));
+  };
   const parts = html.split('\n');
   const out: string[] = [];
   let i = 0;
@@ -54,25 +60,39 @@ export function markdownToHtml(md: string): string {
       i++;
       continue;
     }
-    if (/^-\s+/.test(p)) {
+    const bullet = p.match(/^([ \t]*)-([ \t]*)(.*)$/);
+    if (bullet) {
       const items: string[] = [];
-      while (i < parts.length && /^-\s+/.test(parts[i])) {
-        items.push(`<li>${parts[i].replace(/^-\s+/, '')}</li>`);
+      while (i < parts.length) {
+        const m = parts[i].match(/^([ \t]*)-([ \t]*)(.*)$/);
+        if (!m) break;
+        // One space after the dash is the marker separator; extras = indent
+        const pre = m[1].replace(/\t/g, '    ').length;
+        const post = m[2].replace(/\t/g, '    ').length;
+        const indent = pre + Math.max(0, post - 1);
+        items.push(`<li>${indentToNbsp(' '.repeat(Math.min(indent, 12)))}${m[3]}</li>`);
         i++;
       }
       out.push(`<ul>${items.join('')}</ul>`);
       continue;
     }
-    if (/^\d+\.\s+/.test(p)) {
+    const ordered = p.match(/^([ \t]*)(\d+)\.([ \t]*)(.*)$/);
+    if (ordered) {
       const items: string[] = [];
-      while (i < parts.length && /^\d+\.\s+/.test(parts[i])) {
-        items.push(`<li>${parts[i].replace(/^\d+\.\s+/, '')}</li>`);
+      while (i < parts.length) {
+        const m = parts[i].match(/^([ \t]*)\d+\.([ \t]*)(.*)$/);
+        if (!m) break;
+        const pre = m[1].replace(/\t/g, '    ').length;
+        const post = m[2].replace(/\t/g, '    ').length;
+        const indent = pre + Math.max(0, post - 1);
+        items.push(`<li>${indentToNbsp(' '.repeat(Math.min(indent, 12)))}${m[3]}</li>`);
         i++;
       }
       out.push(`<ol>${items.join('')}</ol>`);
       continue;
     }
-    out.push(`<div>${p}</div>`);
+    const lead = p.match(/^[ \t]+/);
+    out.push(`<div>${lead ? indentToNbsp(lead[0]) : ''}${lead ? p.slice(lead[0].length) : p}</div>`);
     i++;
   }
   return out.join('');
@@ -84,7 +104,8 @@ export function htmlToMarkdown(html: string): string {
   md = md.replace(/<ol[^>]*>([\s\S]*?)<\/ol>/gi, (_, inner: string) => {
     const items: string[] = [];
     inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (__: string, c: string) => {
-      items.push(`${items.length + 1}. ${stripTags(c).trim()}`);
+      // trimEnd only: leading &nbsp; indent must survive (entities decode later)
+      items.push(`${items.length + 1}. ${stripTags(c).replace(/\s+$/, '')}`);
       return '';
     });
     return items.length > 0 ? '\n' + items.join('\n') + '\n' : '';
@@ -92,7 +113,7 @@ export function htmlToMarkdown(html: string): string {
   md = md.replace(/<ul[^>]*>([\s\S]*?)<\/ul>/gi, (_, inner: string) => {
     const items: string[] = [];
     inner.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, (__: string, c: string) => {
-      items.push(`- ${stripTags(c).trim()}`);
+      items.push(`- ${stripTags(c).replace(/\s+$/, '')}`);
       return '';
     });
     return items.length > 0 ? '\n' + items.join('\n') + '\n' : '';
@@ -134,7 +155,9 @@ export function htmlToMarkdown(html: string): string {
   md = md.replace(/&lt;/g, '<');
   md = md.replace(/&gt;/g, '>');
   md = md.replace(/&quot;/g, '"');
-  return md.trim();
+  // Strip structural newlines but keep meaningful leading spaces (indentation)
+  // and drop trailing whitespace (dead space at the end of reports).
+  return md.replace(/^[\r\n]+/, '').replace(/\s+$/, '');
 }
 
 function stripTags(s: string): string {
