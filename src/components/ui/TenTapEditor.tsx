@@ -1,5 +1,5 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import {
   RichText,
   useEditorBridge,
@@ -17,6 +17,8 @@ export type TenTapEditorHandle = {
   focus: () => void;
   blur: () => void;
   editor: EditorBridge | null;
+  /** Pull the latest content straight from the bridge (bypasses debounce/state lag). */
+  getMarkdown: () => Promise<string>;
 };
 
 type Props = {
@@ -56,6 +58,8 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
   const editor = useEditorBridge({
     autofocus: false,
     avoidIosKeyboard: true,
+    // Grow with content so long reports scroll via the parent ScrollView
+    dynamicHeight: true,
     initialContent: initialHtml || '<p></p>',
     bridgeExtensions: EDITOR_BRIDGES,
     theme: {
@@ -169,6 +173,20 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
     }
   }, [htmlContent, macros, onChange, editor]);
 
+  const getMarkdown = React.useCallback(async (): Promise<string> => {
+    try {
+      const html = await (editor as any)?.getHTML?.();
+      if (typeof html === 'string' && html.length > 0) {
+        const md = htmlToMarkdown(html);
+        lastMarkdownRef.current = md;
+        return md;
+      }
+    } catch (e) {
+      console.warn('[TenTapEditor] getMarkdown from bridge failed, using last state', e);
+    }
+    return lastMarkdownRef.current;
+  }, [editor]);
+
   useImperativeHandle(
     ref,
     () => ({
@@ -179,8 +197,9 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
         editor?.blur?.();
       },
       editor,
+      getMarkdown,
     }),
-    [editor],
+    [editor, getMarkdown],
   );
 
   return (
@@ -196,19 +215,21 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    minHeight: 180,
+    minHeight: 140,
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 8,
     backgroundColor: colors.surface,
     overflow: 'hidden',
+    // Breathing room between the border and the editor text
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
+  // NOTE: no flex/minHeight here — with dynamicHeight the WebView sizes
+  // itself to the content. Forced min-heights stacked (container 180 +
+  // webview 160) left a tall dead box under short reports.
   richText: {
-    flex: 1,
-    minHeight: 160,
-    // On Android, ensure the WebView doesn't need extra padding for keyboard
-    ...(Platform.OS === 'android' ? { flexGrow: 1 } : {}),
+    backgroundColor: colors.surface,
   } as any,
 });
 

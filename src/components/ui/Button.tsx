@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 import { colors, radius } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 
-type Variant = 'primary' | 'secondary' | 'ghost';
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'tinted';
 type Size = 'md' | 'lg';
 
 type Props = {
@@ -29,17 +29,34 @@ const variantStyles: Record<Variant, ViewStyle> = {
     backgroundColor: 'transparent',
     borderWidth: 0,
   },
+  danger: {
+    backgroundColor: colors.error,
+    borderWidth: 0,
+  },
+  tinted: {
+    backgroundColor: colors.primaryFocusRing,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
 };
 
 const pressedStyles: Record<Variant, ViewStyle> = {
   primary: { backgroundColor: colors.primaryHover },
   secondary: { backgroundColor: colors.secondaryHover },
   ghost: { backgroundColor: colors.ghostHover },
+  danger: { backgroundColor: colors.error, opacity: 0.85 },
+  tinted: { backgroundColor: colors.primaryFocusRing, opacity: 0.75 },
 };
 
 export function Button({ variant = 'primary', size = 'md', disabled, onPress, label, style }: Props) {
   const textColor =
-    variant === 'primary' ? colors.white : variant === 'secondary' ? colors.text : colors.muted;
+    variant === 'primary' || variant === 'danger'
+      ? colors.white
+      : variant === 'tinted'
+        ? colors.primary
+        : variant === 'secondary'
+          ? colors.text
+          : colors.muted;
 
   return (
     <Pressable

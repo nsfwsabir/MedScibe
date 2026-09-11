@@ -43,7 +43,12 @@ export function useUpdateNote() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: NoteUpdate }) => updateNote(id, patch),
-    onSuccess: () => qc.invalidateQueries({ queryKey: notesKeys.all }),
+    onSuccess: (saved, { id }) => {
+      // Write server ground truth straight into the detail cache so the
+      // preview screen reflects edits instantly even if refetch lags.
+      qc.setQueryData(notesKeys.detail(id), saved);
+      void qc.invalidateQueries({ queryKey: notesKeys.all });
+    },
   });
 }
 

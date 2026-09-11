@@ -67,36 +67,32 @@ export function NoteDetailScreen({ navigation, route }: Props) {
     if (!note) return;
     const htmlBody = markdownToHtml(note.note_text ?? note.raw_transcript ?? '');
     const title = note.patient_name ?? 'Clinical report';
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;padding:24px;color:#24211E}h1{font-size:20px}h2{font-size:17px}</style></head><body><h2>${title}</h2><div>${htmlBody}</div></body></html>`;
+    const meta = `${note.patient_age != null ? `${note.patient_age}yo` : ''}${note.patient_sex ? ` · ${note.patient_sex}` : ''} · Visit: ${new Date(note.visit_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;padding:24px;color:#24211E;line-height:1.5}h1{font-size:20px}h2{font-size:17px}.meta{color:#66615D;font-size:13px;margin-bottom:16px}</style></head><body><h2>${title}</h2><div class="meta">${meta}</div><div>${htmlBody}</div></body></html>`;
     try {
-      // Try expo-print if installed (optional dependency)
-      let Print: any = null;
+      const Print = await import('expo-print');
+      const { uri } = await Print.printToFileAsync({ html, base64: false });
       try {
-        // @ts-ignore - optional dependency
-        // eslint-disable-next-line import/no-unresolved
-        Print = await import('expo-print');
-      } catch {}
-      if (Print?.printToFileAsync) {
-        const { uri } = await Print.printToFileAsync({ html });
-        // Try expo-sharing
-        try {
-          // @ts-ignore - optional dependency
-          // eslint-disable-next-line import/no-unresolved
-          const Sharing = await import('expo-sharing');
-          if (await Sharing.isAvailableAsync()) {
-            await Sharing.shareAsync(uri, { UTI: 'com.adobe.pdf', mimeType: 'application/pdf' });
-          } else {
-            await Share.share({ url: uri, title });
-          }
-        } catch {
+        const Sharing = await import('expo-sharing');
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(uri, { UTI: 'com.adobe.pdf', mimeType: 'application/pdf' });
+        } else {
           await Share.share({ url: uri, title });
         }
-      } else {
-        await Share.share({ message: html, title });
+      } catch {
+        await Share.share({ url: uri, title });
       }
       void logAudit(note.id, 'export');
     } catch (e) {
-      Alert.alert('PDF failed', e instanceof Error ? e.message : 'Could not generate PDF');
+      // Never share raw HTML — fall back to readable plain text
+      console.warn('[detail] PDF export failed, falling back to plain-text share', e);
+      try {
+        const text = plainText(note.note_text ?? note.raw_transcript ?? '');
+        await Share.share({ message: `${title}\n${meta}\n\n${text}`, title });
+        void logAudit(note.id, 'export');
+      } catch (shareErr) {
+        Alert.alert('PDF failed', shareErr instanceof Error ? shareErr.message : 'Could not generate PDF');
+      }
     }
   };
 
@@ -118,7 +114,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
         <View style={styles.titleRow}>
           <Badge label={note.status.toUpperCase()} variant={note.status === 'draft' ? 'draft' : 'finalized'} />
           <Text style={[typography.caption, { color: colors.muted }]}>ID: #{shortId}</Text>
@@ -129,15 +125,15 @@ export function NoteDetailScreen({ navigation, route }: Props) {
         <Text style={[typography.body, { color: colors.muted }]}>{metaBits.join(' · ') || 'No patient details'}</Text>
 
         <Card style={styles.sectionCard}>
-          <RichText value={note.note_text ?? '—'} baseStyle={{ color: colors.text }} />
+          <RichText value={(note.note_text ?? '—').replace(/\s+$/, '')} baseStyle={{ color: colors.text }} />
         </Card>
       </ScrollView>
 
       <View style={[styles.actions, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <Button label="Edit" variant="secondary" onPress={() => navigation.navigate('NoteEdit', { id })} />
-        <Button label="PDF" variant="secondary" onPress={handlePdf} />
-        <Button label="Share" variant="secondary" onPress={handleShare} />
-        <Button label="Delete" variant="ghost" onPress={handleDelete} disabled={softDelete.isPending} />
+        <Button label="Edit" variant="primary" onPress={() => navigation.navigate('NoteEdit', { id })} style={styles.actionButton} />
+        <Button label="PDF" variant="tinted" onPress={handlePdf} style={styles.actionButton} />
+        <Button label="Share" variant="tinted" onPress={handleShare} style={styles.actionButton} />
+        <Button label="Delete" variant="danger" onPress={handleDelete} disabled={softDelete.isPending} style={styles.actionButton} />
       </View>
     </View>
   );
@@ -158,6 +154,9 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     gap: spacing.md,
+  },
+  scroll: {
+    flex: 1,
   },
   content: {
     paddingHorizontal: spacing.md,
@@ -180,5 +179,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopWidth: 1,
     borderTopColor: colors.border,
+  },
+  actionButton: {
+    flex: 1,
+    paddingHorizontal: 8,
   },
 });

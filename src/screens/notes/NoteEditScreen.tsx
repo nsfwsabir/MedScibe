@@ -1,6 +1,7 @@
 import React, { ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -18,7 +19,7 @@ import { TextInput } from '../../components/ui/TextInput';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
 import TenTapEditor, { TenTapEditorHandle } from '../../components/ui/TenTapEditor';
-import { Toolbar, useKeyboard } from '@10play/tentap-editor';
+import { Toolbar } from '@10play/tentap-editor';
 import { useMacros } from '../../features/macros/macrosQueries';
 import { logAudit } from '../../features/audit/auditApi';
 import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -100,7 +101,16 @@ function NoteEditor({
   const { data: macros } = useMacros();
   const editorRef = React.useRef<TenTapEditorHandle>(null);
   const [editorBridge, setEditorBridge] = React.useState<any>(null);
-  const { isKeyboardUp } = useKeyboard();
+  // RN core Keyboard API (not the library hook) — proven reliable on Android.
+  const [keyboardUp, setKeyboardUp] = React.useState(false);
+  React.useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardUp(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   // Poll for editor instance (10tap creates it async)
   React.useEffect(() => {
@@ -118,6 +128,12 @@ function NoteEditor({
     if (!note) return;
     setSaving(true);
     try {
+      // Pull fresh content from the bridge: onChange state can lag behind
+      // the last keystrokes (bridge debounce), which made saves lose edits.
+      const fresh = (await editorRef.current?.getMarkdown()) ?? noteText;
+      // Strip trailing blank lines: they render as dead space at the end of
+      // the report on both edit + preview and force needless scrolling.
+      const latestText = fresh.replace(/\s+$/, '');
       const age = patientAge ? parseInt(patientAge, 10) : null;
       await updateNote.mutateAsync({
         id,
@@ -126,7 +142,7 @@ function NoteEditor({
           patient_age: age && !Number.isNaN(age) ? age : null,
           patient_sex: patientSex || null,
           visit_date: visitDate || undefined,
-          note_text: noteText || null,
+          note_text: latestText || null,
           status: finalize ? 'finalized' : 'draft',
         },
       });
@@ -216,9 +232,11 @@ function NoteEditor({
         ) : null}
       </ScrollView>
 
-      {editorBridge && isKeyboardUp ? (
+      {editorBridge && keyboardUp ? (
         <View style={styles.toolbarContainer}>
-          <Toolbar editor={editorBridge} />
+          {/* hidden={false}: library auto-hide relies on bridge focus state
+              which is unreliable here; RN keyboard state gates visibility */}
+          <Toolbar editor={editorBridge} hidden={false} />
         </View>
       ) : null}
 
