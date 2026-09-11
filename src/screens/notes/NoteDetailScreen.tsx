@@ -41,12 +41,21 @@ export function NoteDetailScreen({ navigation, route }: Props) {
   ].filter(Boolean);
 
   const handleDelete = () => {
-    softDelete.mutate(id, {
-      onSuccess: () => {
-        void logAudit(id, 'soft_delete');
-        navigation.goBack();
+    Alert.alert('Delete report?', 'This report will be permanently deleted. This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          softDelete.mutate(id, {
+            onSuccess: () => {
+              void logAudit(id, 'soft_delete');
+              navigation.goBack();
+            },
+          });
+        },
       },
-    });
+    ]);
   };
 
   const handleShare = async () => {
@@ -126,7 +135,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
         <Button label="Edit" variant="primary" onPress={() => navigation.navigate('NoteEdit', { id })} style={styles.actionButton} />
         <Button label="PDF" variant="tinted" onPress={handlePdf} style={styles.actionButton} />
         <Button label="Share" variant="tinted" onPress={handleShare} style={styles.actionButton} />
-        <Button label="Delete" variant="danger" onPress={handleDelete} disabled={softDelete.isPending} style={styles.actionButton} />
+        <Button label="Delete" variant="primary" onPress={handleDelete} disabled={softDelete.isPending} style={styles.actionButton} />
       </View>
     </View>
   );
