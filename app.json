@@ -14,10 +14,8 @@
     "android": {
       "package": "com.medscribe.app",
       "adaptiveIcon": {
-        "backgroundColor": "#F2ECE4",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#f6f5f4",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -31,7 +29,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F2ECE4",
+          "backgroundColor": "#f6f5f4",
           "image": "./assets/splash-icon.png",
           "imageWidth": 200
         }

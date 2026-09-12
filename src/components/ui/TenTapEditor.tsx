@@ -134,6 +134,24 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
   useEffect(() => {
     if (htmlContent === undefined || htmlContent === null) return;
     if (typeof htmlContent !== 'string') return;
+    // Cap runaway trailing empty paragraphs: every Enter at the end of the
+    // doc appends an empty <p>, and dynamicHeight grows the box for each one
+    // (dead white space below the text). Keep max 1 trailing empty so the
+    // cursor always has a home but space can't accumulate.
+    // NOTE: single trailing empty is untouched (normal typing state).
+    if (!isApplyingMacroRef.current && /(?:<(p|div)>(<br\s*\/?>)?<\/\1>\s*){2,}\s*$/i.test(htmlContent)) {
+      isApplyingMacroRef.current = true;
+      const base = htmlToMarkdown(htmlContent);
+      const cappedMarkdown = base + '\n';
+      lastMarkdownRef.current = cappedMarkdown;
+      if ((editor as any).setContent) {
+        (editor as any).setContent(markdownToHtml(cappedMarkdown));
+      }
+      setTimeout(() => {
+        isApplyingMacroRef.current = false;
+      }, 50);
+      return;
+    }
     // htmlContent is a string like "<p>hello</p><h1>title</h1>"
     // NOTE: htmlToMarkdown() trims, so a just-typed trailing space never
     // appears in `markdown` — detect it from the raw HTML instead.

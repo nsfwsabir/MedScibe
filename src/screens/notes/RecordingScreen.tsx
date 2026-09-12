@@ -106,7 +106,7 @@ export function RecordingScreen({ navigation, route }: Props) {
           disabled={!isRecording && !isPaused}
           accessibilityLabel={isPaused ? 'Resume' : 'Pause'}
         >
-          {isPaused ? <PlayIcon /> : <PauseIcon />}
+          {isPaused ? <PlayIcon color={colors.primary} /> : <PauseIcon color={colors.primary} />}
         </Pressable>
 
         <Pressable
@@ -174,9 +174,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   pauseButton: {
-    backgroundColor: colors.surface,
+    // Tinted (not plain surface): default white icons were invisible on surface.
+    // Icons are now primary on a primary-tint background, distinct from stop.
+    backgroundColor: colors.primaryFocusRing,
     borderWidth: 1,
-    borderColor: colors.borderStrong,
+    borderColor: colors.primary,
   },
   stopButton: {
     backgroundColor: colors.primary,

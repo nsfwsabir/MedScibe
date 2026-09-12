@@ -8,7 +8,7 @@ import { Card } from '../../components/ui/Card';
 import { Chip } from '../../components/ui/Chip';
 import { Badge } from '../../components/ui/Badge';
 import { TextInput } from '../../components/ui/TextInput';
-import { ChevronDownIcon, FilterIcon } from '../../components/ui/icons';
+import { FilterIcon } from '../../components/ui/icons';
 import { useNotes } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
 import { plainText } from '../../features/notes/formatting';
@@ -159,30 +159,37 @@ export function HomeScreen({ navigation }: Props) {
         </View>
         <Pressable onPress={() => tabNavigation.navigate('SettingsTab', { screen: 'Profile' })} hitSlop={8}>
           <View style={styles.avatar}>
-            <Text style={[typography.bodySemibold, { color: colors.text }]}>{first}</Text>
+            <Text style={[typography.bodySemibold, { color: colors.white }]}>{first}</Text>
           </View>
         </Pressable>
       </View>
 
-      <TextInput
-        placeholder="Search patients or complaints..."
-        value={query}
-        onChangeText={setQuery}
-        style={styles.search}
-      />
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Filters"
-        onPress={() => setFiltersVisible(true)}
-        style={({ pressed }) => [styles.filtersButton, pressed && styles.filtersButtonPressed]}
-      >
-        <FilterIcon size={20} color={activeFilterCount > 0 ? colors.primary : colors.text} />
-        <Text style={[typography.bodySemibold, { color: activeFilterCount > 0 ? colors.primary : colors.text }]}>
-          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-        </Text>
-        <ChevronDownIcon size={18} color={activeFilterCount > 0 ? colors.primary : colors.text} />
-      </Pressable>
+      <View style={styles.searchRow}>
+        <View style={{ flex: 1 }}>
+          <TextInput
+            placeholder="Search patients or complaints..."
+            value={query}
+            onChangeText={setQuery}
+          />
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : 'Filters'}
+          onPress={() => setFiltersVisible(true)}
+          style={({ pressed }) => [
+            styles.filterIconButton,
+            activeFilterCount > 0 && styles.filterIconButtonActive,
+            pressed && styles.filtersButtonPressed,
+          ]}
+        >
+          <FilterIcon size={20} color={activeFilterCount > 0 ? colors.primary : colors.muted} />
+          {activeFilterCount > 0 ? (
+            <View style={styles.filterBadge}>
+              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+            </View>
+          ) : null}
+        </Pressable>
+      </View>
 
       <BottomSheet visible={filtersVisible} onClose={() => setFiltersVisible(false)}>
         <Text style={[typography.bodySemibold, { color: colors.text }]}>Filter reports</Text>
@@ -259,30 +266,48 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: colors.borderSubtle,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  search: {
-    marginBottom: spacing.sm,
-    flexShrink: 0,
-  },
-  filtersButton: {
+  searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: spacing.sm,
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: colors.border,
-    paddingVertical: 12,
     marginBottom: spacing.md,
-    marginHorizontal: -spacing.md,
-    paddingHorizontal: spacing.md,
     flexShrink: 0,
+  },
+  filterIconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  filterIconButtonActive: {
+    backgroundColor: colors.primaryFocusRing,
+    borderColor: colors.primary,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  filterBadgeText: {
+    color: colors.white,
+    fontSize: 11,
+    fontWeight: '700',
   },
   filtersButtonPressed: {
     opacity: 0.7,

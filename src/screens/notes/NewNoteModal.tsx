@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { colors, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 import { useUiStore } from '../../features/ui/uiStore';
+import { MicIcon } from '../../components/ui/icons';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -31,7 +32,9 @@ export function NewNoteModal() {
 
       <Pressable onPress={startNote} >
         <Card style={styles.target}>
-          <Text style={styles.targetIcon}>🎙️</Text>
+          <View style={styles.micWrap}>
+            <MicIcon size={22} />
+          </View>
           <View style={{ flex: 1 }}>
             <Text style={[typography.bodySemibold, { color: colors.text }]}>Quick Dictation</Text>
             <Text style={[typography.caption, { color: colors.muted }]}>
@@ -56,7 +59,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  targetIcon: {
-    fontSize: 22,
+  micWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.primaryFocusRing,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 });
