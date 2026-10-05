@@ -8,7 +8,7 @@ export const WHISPER_MODEL_FILENAME = WHISPER_MODEL_URL.split('/').pop() ?? 'ggm
 /** Silero VAD model for live speech slicing (small, ~2 MB). Overridable via env. */
 export const VAD_MODEL_URL =
   process.env.EXPO_PUBLIC_VAD_MODEL_URL ??
-  'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-silero-v6.2.0.bin';
+  'https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin';
 export const VAD_MODEL_FILENAME = VAD_MODEL_URL.split('/').pop() ?? 'ggml-silero-v6.2.0.bin';
 
 async function downloadFile(

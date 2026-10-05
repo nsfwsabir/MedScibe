@@ -96,10 +96,13 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
 
     this.emit = onText;
     this.slices.clear();
+    // Without VAD there is no speech-pause slicing, so cut short time slices
+    // — otherwise the first text only appears after a full 30s slice.
+    const sliceSec = vadContext ? 30 : 8;
     this.realtime = new RealtimeTranscriber(
       { whisperContext: context, vadContext, audioStream: new AudioPcmStreamAdapter(), fs },
       {
-        audioSliceSec: 30,
+        audioSliceSec: sliceSec,
         audioMinSec: 1,
         audioOutputPath: this.audioUri,
         audioStreamConfig: { sampleRate: 16000, channels: 1, bitsPerSample: 16 },
