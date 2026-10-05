@@ -68,9 +68,9 @@ export async function handleRequest(req: Request): Promise<Response> {
   const blob = new Blob([audioBytes as BlobPart], { type: mimeType });
   form.append('file', blob, filename);
   form.append('model', model);
-  // Optional: language auto, response json
+  // Fixed English: skips auto-detect (faster + more accurate on short clips).
+  form.append('language', 'en');
   form.append('response_format', 'json');
-  // form.append('language', 'en'); // leave auto
 
   console.log(`[transcribe-audio] -> Groq ${model} ${mimeType} ${Math.round(audioBytes.length / 1024)} KB`);
 

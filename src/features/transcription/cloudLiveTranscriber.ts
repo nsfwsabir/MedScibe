@@ -5,10 +5,11 @@ import { LiveTranscript, LiveTranscriber } from './types';
 import type { AudioPcmStream } from './audioStream';
 
 const SAMPLE_RATE = 16000;
-// Chunk on ~700ms of sub-threshold audio, at least 4s and at most 8s per chunk.
-const MIN_CHUNK_MS = 4000;
-const MAX_CHUNK_MS = 8000;
-const SILENCE_MS = 700;
+// Chunk on ~500ms of sub-threshold audio, at least 2.5s and at most 5s per chunk.
+// Shorter windows = lower latency; large-v3-turbo stays accurate on 3s+ clips.
+const MIN_CHUNK_MS = 2500;
+const MAX_CHUNK_MS = 5000;
+const SILENCE_MS = 500;
 const FRAME_SAMPLES = SAMPLE_RATE / 10; // 100ms RMS frames
 const SILENCE_RMS = 300;
 const SKIP_CHUNK_RMS = 150; // below this the chunk is room silence, not speech
