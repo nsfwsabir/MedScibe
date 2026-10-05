@@ -5,15 +5,16 @@ import { LiveTranscript, LiveTranscriber } from './types';
 import type { AudioPcmStream } from './audioStream';
 
 const SAMPLE_RATE = 16000;
-// Chunk on ~700ms of sub-threshold audio, at least 4s and at most 15s per chunk.
+// Chunk on ~700ms of sub-threshold audio, at least 4s and at most 8s per chunk.
 const MIN_CHUNK_MS = 4000;
-const MAX_CHUNK_MS = 15000;
+const MAX_CHUNK_MS = 8000;
 const SILENCE_MS = 700;
 const FRAME_SAMPLES = SAMPLE_RATE / 10; // 100ms RMS frames
 const SILENCE_RMS = 300;
 const SKIP_CHUNK_RMS = 150; // below this the chunk is room silence, not speech
 
-const LIVE_WAV_PATH = () => `${FileSystem.cacheDirectory}whisper/live-dictation.wav`;
+const CACHE_DIR = () => `${FileSystem.cacheDirectory}whisper/`;
+const LIVE_WAV_PATH = () => `${CACHE_DIR()}live-dictation.wav`;
 
 function encodeWav(samples: Int16Array): Uint8Array {
   const dataBytes = samples.length * 2;
@@ -147,6 +148,7 @@ export class CloudLiveTranscriber implements LiveTranscriber {
     this.paused = false;
     this.stopped = false;
     this.chain = Promise.resolve();
+    await FileSystem.makeDirectoryAsync(CACHE_DIR(), { intermediates: true });
     await FileSystem.deleteAsync(LIVE_WAV_PATH(), { idempotent: true });
     this.adapter = createAudioPcmStream();
     this.adapter.onData(this.onPcm);
@@ -173,12 +175,17 @@ export class CloudLiveTranscriber implements LiveTranscriber {
       await this.chain;
       let audioUri: string | null = null;
       if (this.fullParts.length > 0) {
-        const wav = encodeWav(concatSamples(this.fullParts));
-        const path = LIVE_WAV_PATH();
-        await FileSystem.writeAsStringAsync(path, Buffer.from(wav).toString('base64'), {
-          encoding: 'base64',
-        });
-        audioUri = path;
+        // Retention audio is best-effort: a failed write must not lose the transcript.
+        try {
+          const wav = encodeWav(concatSamples(this.fullParts));
+          const path = LIVE_WAV_PATH();
+          await FileSystem.writeAsStringAsync(path, Buffer.from(wav).toString('base64'), {
+            encoding: 'base64',
+          });
+          audioUri = path;
+        } catch (e) {
+          console.warn('[live] session wav write failed, continuing without audio', e);
+        }
       }
       return { text: this.fullText(), audioUri };
     } finally {
