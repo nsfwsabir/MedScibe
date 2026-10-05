@@ -67,8 +67,17 @@ export function ProcessingScreen({ navigation, route }: Props) {
 
   const runPipeline = async () => {
     const { retainOriginalAudio, retentionDays } = useSettingsStore.getState();
+    // Live dictation hands us the transcript — skip straight to saving/cleanup.
+    const liveTranscript = route.params.transcript?.trim() || null;
+    if (!liveTranscript && !audioUri) {
+      throw new Error('Nothing to process. Please dictate the report again.');
+    }
 
     if (!noteIdRef.current) {
+      if (liveTranscript) {
+        transcriptRef.current = liveTranscript;
+        setStep('cleaning');
+      } else {
       // Stage 1: ensure model (shows downloading progress if needed)
       setStep('downloading');
       setErrorStage(null);
@@ -91,7 +100,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
       setProgress(0);
       let result: { text: string; language: string };
       try {
-        result = await transcriber.transcribe(audioUri, setProgress);
+        result = await transcriber.transcribe(audioUri!, setProgress);
       } catch (e) {
         // WhisperTranscriber now never throws Invalid WAV — it falls back to
         // demo, but keep this catch for unexpected errors so we can show
@@ -102,6 +111,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
         throw new Error('Transcription returned empty text. Try recording a longer, louder dictation.');
       }
       transcriptRef.current = result.text;
+      } // end legacy file-transcription path (live dictation skips to cleaning)
       // Guard the DB writes: a zombie session (expired/revoked tokens) makes
       // every insert fail with "row-level security policy". Fail fast here
       // with a clear re-login prompt instead of a cryptic RLS message.
@@ -118,7 +128,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
           author_id: session.user.id,
           status: 'draft',
           visit_date: localToday(),
-          raw_transcript: result.text,
+          raw_transcript: transcriptRef.current!,
           duration_seconds: durationSeconds,
         });
         noteId = note.id;
@@ -131,7 +141,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
             {
               status: 'draft',
               visit_date: localToday(),
-              raw_transcript: result.text,
+              raw_transcript: transcriptRef.current!,
               duration_seconds: durationSeconds,
             },
             audioUri,
@@ -143,17 +153,21 @@ export function ProcessingScreen({ navigation, route }: Props) {
       }
       noteIdRef.current = noteId;
       // Upload original audio if retention is enabled (non-blocking for cleaning if it fails)
-      try {
-        audioRef.current = await uploadAudio({
-          audioUri,
-          noteId,
-          retainOriginalAudio,
-          retentionDays,
-        });
-      } catch {
+      if (!audioUri) {
         audioRef.current = { audio_path: null, audio_retention_until: null };
+      } else {
+        try {
+          audioRef.current = await uploadAudio({
+            audioUri,
+            noteId,
+            retainOriginalAudio,
+            retentionDays,
+          });
+        } catch {
+          audioRef.current = { audio_path: null, audio_retention_until: null };
+        }
       }
-    } else if (retainOriginalAudio && !audioRef.current?.audio_path) {
+    } else if (retainOriginalAudio && audioUri && !audioRef.current?.audio_path) {
       // Retry case: transcription already done but audio upload failed previously
       try {
         audioRef.current = await uploadAudio({
@@ -245,7 +259,13 @@ export function ProcessingScreen({ navigation, route }: Props) {
 
       <Card style={styles.card}>
         <StepRow
-          label={step === 'downloading' ? 'Downloading model...' : 'Audio transcription'}
+          label={
+            step === 'downloading'
+              ? 'Downloading model...'
+              : route.params.transcript?.trim()
+                ? 'Live transcription'
+                : 'Audio transcription'
+          }
           state={step === 'downloading' || step === 'transcribing' ? 'active' : 'done'}
         />
         {step === 'downloading' || step === 'transcribing' ? (

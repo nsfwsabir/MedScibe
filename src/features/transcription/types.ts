@@ -13,3 +13,22 @@ export interface Transcriber {
   /** Transcribe an audio file. `onProgress` receives 0..100. */
   transcribe(audioUri: string, onProgress?: (progress: number) => void): Promise<TranscriptResult>;
 }
+
+export type LiveTranscript = {
+  text: string;
+  /** Full-session audio file (wav) for the retention upload, or null when unavailable. */
+  audioUri: string | null;
+};
+
+/**
+ * On-the-spot dictation: text streams via `onText` while recording.
+ * `stop()` drains in-flight slices and returns the complete transcript.
+ * Pause keeps accumulated text; resume continues appending to it.
+ */
+export interface LiveTranscriber {
+  readonly name: string;
+  start(onText: (fullText: string) => void): Promise<void>;
+  pause(): Promise<void>;
+  resume(): Promise<void>;
+  stop(): Promise<LiveTranscript>;
+}

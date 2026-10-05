@@ -31,10 +31,25 @@ declare module 'whisper.rn' {
       filePathOrBase64: string | number,
       options?: TranscribeOptions,
     ): { stop: () => Promise<void>; promise: Promise<TranscribeResult> };
+    transcribeData(data: ArrayBuffer, options?: TranscribeOptions): Promise<TranscribeResult>;
     release(): Promise<void>;
   }
 
   export function initWhisper(options: ContextOptions): Promise<WhisperContext>;
   export function releaseAllWhisper(): Promise<void>;
   export const libVersion: string;
+
+  export type VadContextOptions = {
+    filePath: string | number;
+    isBundleAsset?: boolean;
+    useGpu?: boolean;
+    nThreads?: number;
+  };
+
+  export class WhisperVadContext {
+    reset(): Promise<void>;
+    release(): Promise<void>;
+  }
+
+  export function initWhisperVad(options: VadContextOptions): Promise<WhisperVadContext>;
 }

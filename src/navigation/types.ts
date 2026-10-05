@@ -8,7 +8,7 @@ export type NotesStackParamList = {
   NoteDetail: { id: string };
   NoteEdit: { id: string };
   Recording: undefined;
-  Processing: { durationSeconds: number; audioUri: string };
+  Processing: { durationSeconds: number; audioUri: string | null; transcript?: string };
 };
 
 export type SettingsStackParamList = {

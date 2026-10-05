@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
-import { Transcriber } from './types';
-import { FallbackTranscriber } from './fallbackTranscriber';
+import { LiveTranscriber, Transcriber } from './types';
+import { FallbackLiveTranscriber, FallbackTranscriber } from './fallbackTranscriber';
+import { WhisperLiveTranscriber } from './realtimeTranscriber';
 import { WhisperTranscriber } from './whisperTranscriber';
 
 /**
@@ -19,3 +20,9 @@ function selectTranscriber(): Transcriber {
 
 export const transcriber: Transcriber = selectTranscriber();
 export { TranscriptResult } from './types';
+
+/** Fresh live-dictation session (native state per session — never a singleton). */
+export function createLiveSession(): LiveTranscriber {
+  const isExpoGo = Constants.appOwnership === 'expo';
+  return isExpoGo ? new FallbackLiveTranscriber() : new WhisperLiveTranscriber();
+}

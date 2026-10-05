@@ -3,12 +3,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { DEMO_TRANSCRIPT } from './fallbackTranscriber';
+import { whisperModelPath } from './whisperModel';
 import { Transcriber, TranscriptResult } from './types';
-
-const MODEL_URL =
-  process.env.EXPO_PUBLIC_WHISPER_MODEL_URL ??
-  'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin';
-const MODEL_FILENAME = MODEL_URL.split('/').pop() ?? 'ggml-base.bin';
 
 // Offline fallback text lives in fallbackTranscriber (single source).
 const DEMO_FALLBACK_TRANSCRIPT = DEMO_TRANSCRIPT;
@@ -42,27 +38,7 @@ export class WhisperTranscriber implements Transcriber {
   }
 
   private async modelPath(onProgress?: (progress: number) => void): Promise<string> {
-    const dir = FileSystem.cacheDirectory + 'whisper/';
-    const file = dir + MODEL_FILENAME;
-    const info = await FileSystem.getInfoAsync(file);
-    if (info.exists) return file;
-
-    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-    console.log(`[whisper] downloading ${MODEL_FILENAME} (${MODEL_URL})`);
-    const callback = (progress: { totalBytesWritten: number; totalBytesExpectedToWrite: number }) => {
-      if (progress.totalBytesExpectedToWrite > 0 && onProgress) {
-        const pct = Math.round((progress.totalBytesWritten / progress.totalBytesExpectedToWrite) * 100);
-        onProgress(Math.min(99, pct));
-      }
-    };
-    const dl = FileSystem.createDownloadResumable(MODEL_URL, file, {}, callback);
-    const result = await dl.downloadAsync();
-    if (!result || result.status !== 200) {
-      await FileSystem.deleteAsync(file, { idempotent: true });
-      throw new Error(`Whisper model download failed (HTTP ${result?.status ?? 0}). Check internet & storage.`);
-    }
-    onProgress?.(100);
-    return file;
+    return whisperModelPath(onProgress);
   }
 
   async ensureModel(onProgress?: (progress: number) => void): Promise<void> {
