@@ -41,15 +41,13 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
     // Explicit /index: the package exports map points the bare directory form
     // at a nonexistent file, which Metro (unlike tsc) won't fall back from.
     log('importing realtime-transcription');
-    const rt = await import('whisper.rn/realtime-transcription/index');
-    log(`realtime exports (RealtimeTranscriber=${typeof (rt as any).RealtimeTranscriber})`);
-    const { RealtimeTranscriber } = rt as any;
+    const { RealtimeTranscriber, RingBufferVad } = await import(
+      'whisper.rn/realtime-transcription/index'
+    );
     log('importing AudioPcmStreamAdapter');
-    const pcm = await import(
+    const { AudioPcmStreamAdapter } = await import(
       'whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter'
     );
-    log(`adapter exports (AudioPcmStreamAdapter=${typeof (pcm as any).AudioPcmStreamAdapter})`);
-    const { AudioPcmStreamAdapter } = pcm as any;
 
     const modelFile = await whisperModelPath();
     let context: { release(): Promise<void> };
@@ -66,8 +64,12 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
 
     let vadContext: unknown;
     try {
-      vadContext = await initWhisperVad({ filePath: await vadModelPath() });
-      this.contexts.push(vadContext as { release(): Promise<void> });
+      // RealtimeTranscriber needs a streaming VAD (onSpeechStart/...), not the
+      // raw WhisperVadContext — RingBufferVad adapts it with ring buffering.
+      const whisperVad = await initWhisperVad({ filePath: await vadModelPath() });
+      this.contexts.push(whisperVad);
+      vadContext = new RingBufferVad(whisperVad, { vadPreset: 'default', sampleRate: 16000 });
+      log('VAD ready');
     } catch (e) {
       console.warn('[live] VAD model unavailable, falling back to time slicing', e);
     }

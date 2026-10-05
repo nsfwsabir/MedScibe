@@ -63,3 +63,15 @@ export class RealtimeTranscriber {
   stop(): Promise<void>;
   release(): Promise<void>;
 }
+
+export class RingBufferVad {
+  constructor(
+    vadContext: unknown,
+    options?: {
+      vadPreset?: string;
+      sampleRate?: number;
+      inferenceIntervalMs?: number;
+      preRecordingBufferMs?: number;
+    },
+  );
+}
