@@ -8,6 +8,7 @@ import { Waveform } from '../../components/screens/Waveform';
 import { MicIcon, PauseIcon, PlayIcon, StopIcon } from '../../components/ui/icons';
 import { createLiveSession } from '../../features/transcription';
 import type { LiveTranscriber } from '../../features/transcription/types';
+import NetInfo from '@react-native-community/netinfo';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -29,6 +30,7 @@ export function RecordingScreen({ navigation }: Props) {
   const [status, setStatus] = useState<Status>('starting');
   const [error, setError] = useState<string | null>(null);
   const [liveText, setLiveText] = useState('');
+  const [level, setLevel] = useState<number | undefined>(undefined);
   const [elapsedMillis, setElapsedMillis] = useState(0);
   const [stopping, setStopping] = useState(false);
 
@@ -48,9 +50,19 @@ export function RecordingScreen({ navigation }: Props) {
       try {
         const { granted } = await requestRecordingPermissionsAsync();
         if (!granted) throw new Error('Microphone permission was not granted.');
-        await session.start((text) => {
-          if (!cancelled) setLiveText(text);
-        });
+        // Cloud dictation needs internet — fail fast with a clear message.
+        const net = await NetInfo.fetch();
+        if (!net.isConnected) {
+          throw new Error('Dictation needs an internet connection for cloud transcription.');
+        }
+        await session.start(
+          (text) => {
+            if (!cancelled) setLiveText(text);
+          },
+          (micLevel) => {
+            if (!cancelled) setLevel(micLevel);
+          },
+        );
         if (!cancelled) setStatus('live');
       } catch (e) {
         if (!cancelled) {
@@ -185,7 +197,7 @@ export function RecordingScreen({ navigation }: Props) {
       </View>
 
       <View style={styles.waveformWrap}>
-        <Waveform active={isLive} />
+        <Waveform metering={level} active={isLive} />
       </View>
 
       <ScrollView

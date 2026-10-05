@@ -1,28 +1,16 @@
 import Constants from 'expo-constants';
-import { LiveTranscriber, Transcriber } from './types';
-import { FallbackLiveTranscriber, FallbackTranscriber } from './fallbackTranscriber';
-import { WhisperLiveTranscriber } from './realtimeTranscriber';
-import { WhisperTranscriber } from './whisperTranscriber';
+import { LiveTranscriber } from './types';
+import { CloudLiveTranscriber } from './cloudLiveTranscriber';
+import { FallbackLiveTranscriber } from './fallbackTranscriber';
 
 /**
- * Pick the transcription engine for the current runtime.
- * - Expo Go: no native JSI bindings → fallback transcriber (canned transcript).
- * - Development build: whisper.rn on-device transcription.
+ * Fresh live-dictation session (native state per session — never a singleton).
+ * - Dev builds: cloud large-v3-turbo over chunked mic audio.
+ * - Expo Go: no mic PCM module → simulated streaming demo transcript.
  */
-function selectTranscriber(): Transcriber {
-  const ownership = Constants.appOwnership;
-  const isExpoGo = ownership === 'expo';
-  if (isExpoGo) {
-    return new FallbackTranscriber();
-  }
-  return new WhisperTranscriber();
-}
-
-export const transcriber: Transcriber = selectTranscriber();
-export { TranscriptResult } from './types';
-
-/** Fresh live-dictation session (native state per session — never a singleton). */
 export function createLiveSession(): LiveTranscriber {
   const isExpoGo = Constants.appOwnership === 'expo';
-  return isExpoGo ? new FallbackLiveTranscriber() : new WhisperLiveTranscriber();
+  return isExpoGo ? new FallbackLiveTranscriber() : new CloudLiveTranscriber();
 }
+
+export { TranscriptResult } from './types';

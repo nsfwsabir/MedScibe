@@ -6,7 +6,6 @@ import { colors, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
-import { transcriber } from '../../features/transcription';
 import { useCreateNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { cleanupTranscript } from '../../features/structuring/structureApi';
 import { macrosKeys } from '../../features/macros/macrosQueries';
@@ -17,7 +16,6 @@ import { useSettingsStore } from '../../features/settings/settingsStore';
 import { logAudit } from '../../features/audit/auditApi';
 import { enqueuePendingNote } from '../../features/offline/pendingNotes';
 import { supabase } from '../../lib/supabase';
-import { cloudTranscribe } from '../../features/transcription/cloudTranscribe';
 import { formatSupabaseError, todayLocalISO } from '../../lib/format';
 import { useAuthStore } from '../../features/auth/authStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -53,8 +51,7 @@ export function ProcessingScreen({ navigation, route }: Props) {
   const { durationSeconds, audioUri } = route.params;
   const createNote = useCreateNote();
   const updateNote = useUpdateNote();
-  const [step, setStep] = useState<Step>('transcribing');
-  const [progress, setProgress] = useState(0);
+  const [step, setStep] = useState<Step>('cleaning');
   const [error, setError] = useState<string | null>(null);
   const [errorStage, setErrorStage] = useState<Step | null>(null);
   const startedRef = useRef(false);
@@ -68,66 +65,17 @@ export function ProcessingScreen({ navigation, route }: Props) {
 
   const runPipeline = async () => {
     const { retainOriginalAudio, retentionDays } = useSettingsStore.getState();
-    // Live dictation hands us the transcript — skip straight to saving/cleanup.
+    // Cloud live dictation hands us the transcript (already large-v3-turbo).
     const liveTranscript = route.params.transcript?.trim() || null;
-    if (!liveTranscript && !audioUri) {
+    if (!liveTranscript) {
       throw new Error('Nothing to process. Please dictate the report again.');
     }
 
     if (!noteIdRef.current) {
-      if (liveTranscript) {
-        transcriptRef.current = liveTranscript;
-        // Refine with large-v3-turbo when online: live text stays as the
-        // offline fallback, cloud text wins when it succeeds.
-        if (audioUri) {
-          setStep('transcribing');
-          setErrorStage('transcribing');
-          try {
-            const refined = await cloudTranscribe(audioUri, (p) => setProgress(Math.round(p)));
-            if (refined.text.trim()) {
-              console.log('[processing] cloud refine replaced live transcript');
-              transcriptRef.current = refined.text;
-            }
-          } catch (e) {
-            console.warn('[processing] cloud refine failed, keeping live transcript', e);
-          }
-        }
-        setStep('cleaning');
-      } else {
-      // Stage 1: ensure model (shows downloading progress if needed)
-      setStep('downloading');
-      setErrorStage(null);
-      setProgress(0);
-      try {
-        await transcriber.ensureModel((p) => setProgress(Math.round(p)));
-      } catch (e) {
-        // Model DL can fail on flaky mobile data (Hugging Face 140 MB).
-        // WhisperTranscriber will fallback to cloud/demo, so don't hard-fail
-        // here — just log and continue to transcription where the fallback
-        // actually runs. Only fail if it's clearly a storage permission error.
-        console.warn('[processing] ensureModel failed, continuing to transcribe fallback', e);
-        const msg = e instanceof Error ? e.message : String(e);
-        const isStorage = /storage|permission|ENOSPC/i.test(msg);
-        if (isStorage) throw e;
-      }
-      // Stage 2: transcription
-      setStep('transcribing');
-      setErrorStage('transcribing');
-      setProgress(0);
-      let result: { text: string; language: string };
-      try {
-        result = await transcriber.transcribe(audioUri!, setProgress);
-      } catch (e) {
-        // WhisperTranscriber now never throws Invalid WAV — it falls back to
-        // demo, but keep this catch for unexpected errors so we can show
-        // the true cause instead of generic "cleaning" message.
-        throw new Error(formatError(e, 'Transcription failed. Check audio format and internet, then Retry.'));
-      }
-      if (!result.text || !result.text.trim()) {
-        throw new Error('Transcription returned empty text. Try recording a longer, louder dictation.');
-      }
-      transcriptRef.current = result.text;
-      } // end legacy file-transcription path (live dictation skips to cleaning)
+      transcriptRef.current = liveTranscript;
+      setStep('cleaning');
+      setErrorStage('cleaning');
+      setError(null);
       // Guard the DB writes: a zombie session (expired/revoked tokens) makes
       // every insert fail with "row-level security policy". Fail fast here
       // with a clear re-login prompt instead of a cryptic RLS message.
@@ -260,38 +208,12 @@ export function ProcessingScreen({ navigation, route }: Props) {
     await runOnce('Something went wrong while cleaning the note.');
   };
 
-  const isFallback = transcriber.name.includes('fallback');
-
   return (
     <View style={[styles.container, { paddingTop: insets.top + 16 }]}>
       <Text style={[typography.heading, styles.title]}>Creating Your Report</Text>
-      {isFallback ? (
-        <View style={styles.fallbackBanner}>
-          <Text style={[typography.caption, { color: colors.muted }]}>
-            Running in Expo Go — transcription uses a demo report. Use a development build for on-device Whisper.
-          </Text>
-        </View>
-      ) : null}
 
       <Card style={styles.card}>
-        <StepRow
-          label={
-            step === 'downloading'
-              ? 'Downloading model...'
-              : route.params.transcript?.trim()
-                ? 'Live transcription'
-                : 'Audio transcription'
-          }
-          state={step === 'downloading' || step === 'transcribing' ? 'active' : 'done'}
-        />
-        {step === 'downloading' || step === 'transcribing' ? (
-          <View style={styles.progressWrap}>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${progress}%` }]} />
-            </View>
-            <Text style={[typography.caption, { color: colors.muted }]}>{progress}%</Text>
-          </View>
-        ) : null}
+        <StepRow label="Cloud transcription" state="done" />
         <StepRow label="Cleaning up the report..." state={step === 'cleaning' ? 'active' : 'queued'} />
       </Card>
 

@@ -1,5 +1,4 @@
-import Constants from 'expo-constants';
-import { LiveTranscript, LiveTranscriber, Transcriber, TranscriptResult } from './types';
+import { LiveTranscript, LiveTranscriber } from './types';
 
 export const DEMO_TRANSCRIPT =
   'Patient presents with a persistent dry cough for the past five days. ' +
@@ -9,34 +8,8 @@ export const DEMO_TRANSCRIPT =
   'Recommend fluids, rest, and fluticasone nasal spray daily. Follow up in seven days if symptoms persist.';
 
 /**
- * Fallback transcriber for Expo Go / web where whisper.rn's native JSI
- * binding cannot run. Returns a canned transcript so the capture loop can be
- * exercised end-to-end before a development build is available.
- */
-export class FallbackTranscriber implements Transcriber {
-  readonly name = 'fallback (Expo Go)';
-
-  isAvailable(): boolean {
-    return Constants.appOwnership === 'expo';
-  }
-
-  async ensureModel(_onProgress?: (progress: number) => void): Promise<void> {
-    console.log('[transcription] Using fallback transcriber — whisper.rn needs a dev build');
-  }
-
-  async transcribe(audioUri: string, onProgress?: (progress: number) => void): Promise<TranscriptResult> {
-    for (let p = 10; p <= 90; p += 10) {
-      await new Promise((r) => setTimeout(r, 180));
-      onProgress?.(p);
-    }
-    onProgress?.(100);
-    return { text: DEMO_TRANSCRIPT, language: 'en' };
-  }
-}
-
-/**
  * Simulated live dictation for Expo Go: streams the canned transcript
- * word-by-word so the live UI loop is testable without native whisper.
+ * word-by-word so the live UI loop is testable without the mic PCM module.
  */
 export class FallbackLiveTranscriber implements LiveTranscriber {
   readonly name = 'fallback live (Expo Go)';

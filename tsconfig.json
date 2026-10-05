@@ -1,17 +1,7 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true,
-    // Typecheck-only redirect: keep whisper.rn's TS sources out of our program
-    // (Metro still resolves the real module at runtime).
-    "paths": {
-      "whisper.rn/realtime-transcription/index": [
-        "./src/types/realtimeTranscriptionStub.d.ts"
-      ],
-      "whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter": [
-        "./src/types/audioPcmStreamAdapterStub.d.ts"
-      ]
-    }
+    "strict": true
   },
   "include": [
     "**/*.ts",
