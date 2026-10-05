@@ -1,4 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
+import { Buffer } from 'buffer';
 import { supabase } from '../../lib/supabase';
 
 export type UploadResult = {
@@ -7,30 +8,7 @@ export type UploadResult = {
 };
 
 function base64ToUint8Array(base64: string): Uint8Array {
-  if (typeof globalThis.atob === 'function') {
-    const binary = globalThis.atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return bytes;
-  }
-  // Manual base64 decode fallback
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  const lookup = new Uint8Array(256);
-  for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i;
-  let buffer = 0;
-  let bits = 0;
-  const out: number[] = [];
-  for (let i = 0; i < base64.length; i++) {
-    const c = base64.charCodeAt(i);
-    if (c === 61) break; // =
-    buffer = (buffer << 6) | lookup[c];
-    bits += 6;
-    if (bits >= 8) {
-      bits -= 8;
-      out.push((buffer >> bits) & 0xff);
-    }
-  }
-  return new Uint8Array(out);
+  return new Uint8Array(Buffer.from(base64, 'base64'));
 }
 
 async function fileToUint8Array(uri: string): Promise<Uint8Array> {

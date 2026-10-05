@@ -1,8 +1,5 @@
 import { Macro } from './macrosApi';
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegExp } from '../../lib/format';
 
 export type MacroLike = Pick<Macro, 'shortcut' | 'expansion'>;
 

@@ -44,12 +44,17 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
 
   setRetainOriginalAudio: async (value) => {
     set({ retainOriginalAudio: value });
-    const { retainOriginalAudio, retentionDays } = get();
-    await SecureStore.setItemAsync(SETTINGS_KEY, JSON.stringify({ retainOriginalAudio, retentionDays }));
+    await persist(get());
   },
   setRetentionDays: async (days) => {
     set({ retentionDays: days });
-    const { retainOriginalAudio, retentionDays } = get();
-    await SecureStore.setItemAsync(SETTINGS_KEY, JSON.stringify({ retainOriginalAudio, retentionDays }));
+    await persist(get());
   },
 }));
+
+async function persist(s: { retainOriginalAudio: boolean; retentionDays: RetentionDays }) {
+  await SecureStore.setItemAsync(
+    SETTINGS_KEY,
+    JSON.stringify({ retainOriginalAudio: s.retainOriginalAudio, retentionDays: s.retentionDays }),
+  );
+}

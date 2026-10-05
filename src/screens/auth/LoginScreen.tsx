@@ -13,7 +13,6 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'Login'>;
 
 export function LoginScreen({ navigation }: Props) {
   const signIn = useAuthStore((s) => s.signIn);
-  const clearError = useAuthStore((s) => s.clearError);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -61,20 +60,14 @@ export function LoginScreen({ navigation }: Props) {
             autoComplete="email"
             keyboardType="email-address"
             value={email}
-            onChangeText={(t) => {
-              setEmail(t);
-              clearError();
-            }}
+            onChangeText={setEmail}
           />
           <TextInput
             label="PASSWORD"
             placeholder="••••••••"
             secureTextEntry
             value={password}
-            onChangeText={(t) => {
-              setPassword(t);
-              clearError();
-            }}
+            onChangeText={setPassword}
           />
           <Text style={[typography.bodyMedium, styles.forgot]}>Forgot password?</Text>
           {error ? <Text style={[typography.caption, styles.errorText]}>{error}</Text> : null}

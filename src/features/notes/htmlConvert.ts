@@ -163,7 +163,3 @@ export function htmlToMarkdown(html: string): string {
 function stripTags(s: string): string {
   return s.replace(/<[^>]*>/g, '');
 }
-
-export function isHtml(s: string): boolean {
-  return /<(b|i|u|h1|h2|div|p|br)[\s>]/i.test(s);
-}

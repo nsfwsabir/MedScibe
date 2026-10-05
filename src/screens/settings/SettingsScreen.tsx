@@ -13,6 +13,7 @@ import { useMacros, useCreateMacro, useDeleteMacro } from '../../features/macros
 import { normalizeShortcut, validateMacro } from '../../features/macros/macrosApi';
 import { RichText } from '../../features/notes/formatting';
 import { useProfileStore } from '../../features/profile/profileStore';
+import { displayNameFromEmail } from '../../lib/format';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../navigation/types';
@@ -52,12 +53,7 @@ export function SettingsScreen() {
     }
   };
 
-  const emailName = user?.email?.split('@')[0] ?? 'Doctor';
-  const derivedName = emailName
-    .split(/[._-]/)
-    .map((w) => w[0]?.toUpperCase() + w.slice(1))
-    .join(' ');
-  const displayName = profile.displayName?.trim() || derivedName;
+  const displayName = profile.displayName?.trim() || displayNameFromEmail(user?.email ?? '');
   const initial = displayName[0]?.toUpperCase() ?? 'D';
 
   return (
@@ -162,21 +158,6 @@ export function SettingsScreen() {
         <Button label="Add Macro" variant="secondary" onPress={handleAddMacro} disabled={createMacroM.isPending} />
       </Card>
 
-      <Card style={styles.section}>
-        <View style={styles.row}>
-          <Text style={[typography.bodyMedium, { color: colors.text }]}>MedScribe AI Engine Version</Text>
-          <Text style={[typography.bodySemibold, { color: colors.muted }]}>v2.4.1</Text>
-        </View>
-        <View style={[styles.row, styles.borderTop]}>
-          <Text style={[typography.bodyMedium, { color: colors.text }]}>DPDP Compliance Certificate</Text>
-          <Text style={[typography.bodySemibold, { color: colors.success }]}>Verified</Text>
-        </View>
-        <View style={[styles.row, styles.borderTop]}>
-          <Text style={[typography.bodyMedium, { color: colors.text }]}>Contact Practice Support</Text>
-          <Text style={[typography.title, { color: colors.muted }]}>›</Text>
-        </View>
-      </Card>
-
       <Button label="Sign Out of MedScribe" variant="ghost" onPress={() => signOut()} />
       <Pressable hitSlop={8} style={styles.legalRow}>
         <Text style={[typography.caption, { color: colors.muted, textAlign: 'center' }]}>
@@ -223,11 +204,6 @@ const styles = StyleSheet.create({
   retentionRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-  },
-  borderTop: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingTop: spacing.md,
   },
   legalRow: {
     marginTop: spacing.sm,

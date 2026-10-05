@@ -14,7 +14,6 @@ type ProfileState = {
   hasLoaded: boolean;
   loadProfile: () => Promise<void>;
   setProfile: (updates: Partial<Profile>) => Promise<void>;
-  clearProfile: () => Promise<void>;
 };
 
 const PROFILE_KEY = 'medscribe.profile';
@@ -97,25 +96,4 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       console.warn('[profile] cloud sync error', e);
     }
   },
-
-  clearProfile: async () => {
-    set({ profile: defaultProfile });
-    await SecureStore.deleteItemAsync(PROFILE_KEY);
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from('profiles').delete().eq('id', user.id);
-      }
-    } catch {}
-  },
 }));
-
-export function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour >= 5 && hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  if (hour < 21) return 'Good evening';
-  return 'Good night';
-}

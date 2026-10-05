@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useRef, useState } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   Keyboard,
@@ -11,14 +11,15 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, spacing } from '../../theme/tokens';
+import { colors, spacing } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { TextInput } from '../../components/ui/TextInput';
 import { useNote, useUpdateNote } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
-import TenTapEditor, { TenTapEditorHandle } from '../../components/ui/TenTapEditor';
+import { TenTapEditor, TenTapEditorHandle } from '../../components/ui/TenTapEditor';
+import { escapeRegExp } from '../../lib/format';
 import { Toolbar } from '@10play/tentap-editor';
 import { useMacros } from '../../features/macros/macrosQueries';
 import { logAudit } from '../../features/audit/auditApi';
@@ -26,10 +27,6 @@ import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-n
 import type { NotesStackParamList } from '../../navigation/types';
 
 type Props = NativeStackScreenProps<NotesStackParamList, 'NoteEdit'>;
-
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 function renderTranscript(text: string, lowConfidenceSpans: string[] | null): ReactNode {
   const spans = (lowConfidenceSpans ?? []).filter((s) => s.trim().length > 0);
@@ -210,7 +207,6 @@ function NoteEditor({
             value={noteText}
             onChange={setNoteText}
             macros={macros ?? []}
-            placeholder="Your report appears here..."
           />
           <Text style={[typography.caption, { color: colors.muted, marginTop: spacing.xs }]}>
             Tip: type a macro shortcut followed by a space to expand it. Use the toolbar for formatting.
@@ -300,63 +296,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingVertical: 4,
   },
-  noteInput: {
-    minHeight: 160,
-    textAlignVertical: 'top',
-  },
-  previewWrap: {
-    marginTop: spacing.sm,
-    gap: spacing.xs,
-  },
-  previewLabel: {
-    color: colors.muted,
-  },
-  previewBox: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.sm,
-  },
   transcriptText: {
     color: colors.muted,
-  },
-  macroList: {
-    maxHeight: 240,
-  },
-  macroRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  macroShortcutWrap: {
-    minWidth: 72,
-    maxWidth: 110,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-    backgroundColor: colors.background,
-  },
-  macroShortcut: {
-    color: colors.primary,
-  },
-  macroExpansion: {
-    flex: 1,
-    color: colors.text,
-  },
-  macroDelete: {
-    color: colors.muted,
-    paddingHorizontal: spacing.xs,
-  },
-  macroEmpty: {
-    color: colors.muted,
-  },
-  macroForm: {
-    flexDirection: 'row',
-    gap: spacing.sm,
   },
   actions: {
     flexDirection: 'row',

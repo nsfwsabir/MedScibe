@@ -151,10 +151,3 @@ if (!env.supabaseUrl || !env.supabaseAnonKey) {
 }
 
 export const supabase: SupabaseClient<Database> = createClient<Database>(url, anonKey);
-
-/** Throws if backend is not configured — use before network calls to fail fast in dev. */
-export function assertBackendConfigured(): void {
-  if (!env.supabaseUrl || !env.supabaseAnonKey) {
-    throw new Error('Supabase is not configured. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY.');
-  }
-}

@@ -13,8 +13,9 @@ import { useNotes } from '../../features/notes/notesQueries';
 import { Note } from '../../features/notes/notesApi';
 import { plainText } from '../../features/notes/formatting';
 import { useAuthStore } from '../../features/auth/authStore';
-import { useProfileStore, getGreeting } from '../../features/profile/profileStore';
+import { useProfileStore } from '../../features/profile/profileStore';
 import { usePendingNotes, useSyncPendingNotes } from '../../features/offline/usePendingNotes';
+import { displayNameFromEmail, formatRelativeDateTime, getGreeting } from '../../lib/format';
 import { Button } from '../../components/ui/Button';
 import NetInfo from '@react-native-community/netinfo';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -25,22 +26,6 @@ type Props = NativeStackScreenProps<NotesStackParamList, 'Home'>;
 
 type Filter = 'all' | 'draft' | 'finalized';
 type DateFilter = 'all' | 'today' | 'week' | 'month';
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-/** Relative day + time: "Today, 12:37 pm" / "Yesterday, 4:05 pm" / "9 Sept, 10:00 am". */
-function formatRelativeDateTime(iso: string): string {
-  const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  const time = formatTime(iso);
-  if (d.toDateString() === today.toDateString()) return `Today, ${time}`;
-  if (d.toDateString() === yesterday.toDateString()) return `Yesterday, ${time}`;
-  return `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
-}
 
 function NoteCard({ note, onPress }: { note: Note; onPress: () => void }) {
   const title = note.patient_name ?? 'Untitled report';
@@ -136,9 +121,7 @@ export function HomeScreen({ navigation }: Props) {
     return () => sub();
   }, [syncPending]);
 
-  const emailName = user?.email?.split('@')[0] ?? 'Doctor';
-  const derivedName = emailName.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  const displayName = profile.displayName?.trim() || derivedName;
+  const displayName = profile.displayName?.trim() || displayNameFromEmail(user?.email ?? '');
   const greeting = getGreeting();
   const first = displayName[0]?.toUpperCase() ?? 'D';
   const draftCount = notes?.filter((n) => n.status === 'draft').length ?? 0;

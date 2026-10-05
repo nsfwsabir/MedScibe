@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -47,14 +47,6 @@ export default function App() {
     void loadSettings();
   }, [bootstrap, loadProfile, loadSettings]);
 
-  const onLayoutRootView = useCallback(async () => {
-    if ((fontsLoaded || fontError) && !initializing) {
-      try {
-        await SplashScreen.hideAsync();
-      } catch {}
-    }
-  }, [fontsLoaded, fontError, initializing]);
-
   useEffect(() => {
     if ((fontsLoaded || fontError) && !initializing) {
       void SplashScreen.hideAsync().catch(() => undefined);
@@ -66,7 +58,7 @@ export default function App() {
   }
 
   return (
-    <SafeAreaProvider onLayout={onLayoutRootView}>
+    <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
         <NavigationContainer>
           <RootNavigator />

@@ -14,8 +14,6 @@ import { tryExpandAtCaret } from '../../features/macros/expansion';
 import type { Macro } from '../../features/macros/macrosApi';
 
 export type TenTapEditorHandle = {
-  focus: () => void;
-  blur: () => void;
   editor: EditorBridge | null;
   /** Pull the latest content straight from the bridge (bypasses debounce/state lag). */
   getMarkdown: () => Promise<string>;
@@ -23,7 +21,6 @@ export type TenTapEditorHandle = {
 
 type Props = {
   value: string;
-  placeholder?: string;
   onChange: (markdown: string) => void;
   macros?: Pick<Macro, 'shortcut' | 'expansion'>[];
 };
@@ -37,16 +34,8 @@ function htmlHasTrailingSpace(html: string): boolean {
   return /( |&nbsp;| )(<\/[^>]+>\s*)*$/i.test(html);
 }
 
-// Keep only the tools we had before: B/I/U/H1/H2 + undo/redo
-const EDITOR_BRIDGES = [
-  ...TenTapStartKit,
-  PlaceholderBridge.configureExtension({
-    placeholder: 'Your report appears here...',
-  }),
-];
-
 export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTapEditor(
-  { value, placeholder, onChange, macros = [] },
+  { value, onChange, macros = [] },
   ref,
 ) {
   const initialHtml = React.useMemo(() => markdownToHtml(value || ''), []);
@@ -61,7 +50,13 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
     // Grow with content so long reports scroll via the parent ScrollView
     dynamicHeight: true,
     initialContent: initialHtml || '<p></p>',
-    bridgeExtensions: EDITOR_BRIDGES,
+    // Keep only the tools we had before: B/I/U/H1/H2 + undo/redo
+    bridgeExtensions: [
+      ...TenTapStartKit,
+      PlaceholderBridge.configureExtension({
+        placeholder: 'Your report appears here...',
+      }),
+    ],
     theme: {
       webview: {
         backgroundColor: colors.surface,
@@ -106,14 +101,6 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
       } as any,
     },
   });
-
-  // Update placeholder if provided after mount
-  useEffect(() => {
-    if (placeholder) {
-      // PlaceholderBridge is configured at init; dynamic update via inject
-      // For now, placeholder is static from initial config
-    }
-  }, [placeholder]);
 
   // Sync external value -> editor (e.g., when note loads or is saved externally)
   // Only update if the markdown derived from editor is different from incoming value
@@ -208,12 +195,6 @@ export const TenTapEditor = forwardRef<TenTapEditorHandle, Props>(function TenTa
   useImperativeHandle(
     ref,
     () => ({
-      focus: () => {
-        editor?.focus?.();
-      },
-      blur: () => {
-        editor?.blur?.();
-      },
       editor,
       getMarkdown,
     }),
@@ -250,5 +231,3 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   } as any,
 });
-
-export default TenTapEditor;

@@ -4,7 +4,6 @@ export const colors = {
   primaryFocusRing: '#CC63451F',
   background: '#F2ECE4',
   surface: '#FDFBF7',
-  surfaceElevated: '#FAF7F2',
   surfaceSubtle: '#F5F0EA',
   text: '#24211E',
   border: '#F5E6E1',
@@ -15,7 +14,6 @@ export const colors = {
   secondaryHover: '#24211E0A',
   ghostHover: '#24211E06',
   error: '#EF4444',
-  errorFocusRing: '#EF44441F',
   success: '#4E7E63',
   successBg: '#EBF2EE',
   white: '#FFFFFF',
@@ -36,13 +34,6 @@ export const radius = {
 } as const;
 
 export const elevation = {
-  sm: {
-    shadowColor: '#24211E',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 2,
-  },
   default: {
     shadowColor: '#24211E',
     shadowOpacity: 0.1,
@@ -56,12 +47,5 @@ export const elevation = {
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
-  },
-  lg: {
-    shadowColor: '#24211E',
-    shadowOpacity: 0.16,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
   },
 } as const;

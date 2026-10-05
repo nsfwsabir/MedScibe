@@ -10,6 +10,7 @@ import { useNote, useSoftDeleteNote } from '../../features/notes/notesQueries';
 import { RichText, plainText } from '../../features/notes/formatting';
 import { logAudit } from '../../features/audit/auditApi';
 import { markdownToHtml } from '../../features/notes/htmlConvert';
+import { formatRelativeDateTime, parseLocalDate } from '../../lib/format';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NotesStackParamList } from '../../navigation/types';
 
@@ -34,36 +35,22 @@ export function NoteDetailScreen({ navigation, route }: Props) {
   }
 
   const shortId = note.id.slice(0, 5).toUpperCase();
-  // visit_date is date-only ("YYYY-MM-DD"): parse as a LOCAL date, otherwise
-  // new Date() treats it as UTC midnight and the day shifts by timezone.
-  const parseLocalDate = (iso: string): Date => {
-    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-    return new Date(iso);
-  };
+  const visitLabel = parseLocalDate(note.visit_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
   const metaBits = [
     note.patient_age != null ? `${note.patient_age}yo` : null,
     note.patient_sex,
-    `Visit: ${parseLocalDate(note.visit_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`,
+    `Visit: ${visitLabel}`,
   ].filter(Boolean);
 
-  const fmtTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  /** Relative day + time: "Today, 12:37 pm" / "Yesterday, 4:05 pm" / "9 Sept 2026, 10:00 am". */
-  const fmtRelativeDateTime = (iso: string): string => {
-    const d = new Date(iso);
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
-    if (d.toDateString() === today.toDateString()) return `Today, ${fmtTime(iso)}`;
-    if (d.toDateString() === yesterday.toDateString()) return `Yesterday, ${fmtTime(iso)}`;
-    return `${d.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}, ${fmtTime(iso)}`;
-  };
-  const createdAt = note.created_at ? fmtRelativeDateTime(note.created_at) : null;
+  const createdAt = note.created_at ? formatRelativeDateTime(note.created_at) : null;
   const editedAt =
     note.updated_at && note.created_at && Math.abs(new Date(note.updated_at).getTime() - new Date(note.created_at).getTime()) > 60_000
-      ? fmtRelativeDateTime(note.updated_at)
+      ? formatRelativeDateTime(note.updated_at)
       : null;
+
+  const reportTitle = note.patient_name ? `Report — ${note.patient_name}` : 'Clinical report';
+  const reportText = plainText(note.note_text ?? note.raw_transcript ?? '');
+  const metaLine = metaBits.join(' · ');
 
   const handleDelete = () => {
     Alert.alert('Delete report?', 'This report will be permanently deleted. This cannot be undone.', [
@@ -85,10 +72,8 @@ export function NoteDetailScreen({ navigation, route }: Props) {
 
   const handleShare = async () => {
     if (!note) return;
-    const text = plainText(note.note_text ?? note.raw_transcript ?? '');
-    const title = note.patient_name ? `Report — ${note.patient_name}` : 'Clinical report';
     try {
-      await Share.share({ message: `${title}\n\n${text}`, title });
+      await Share.share({ message: `${reportTitle}\n\n${reportText}`, title: reportTitle });
       void logAudit(note.id, 'export');
     } catch (e) {
       Alert.alert('Share failed', e instanceof Error ? e.message : 'Could not share');
@@ -99,8 +84,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
     if (!note) return;
     const htmlBody = markdownToHtml(note.note_text ?? note.raw_transcript ?? '');
     const title = note.patient_name ?? 'Clinical report';
-    const meta = `${note.patient_age != null ? `${note.patient_age}yo` : ''}${note.patient_sex ? ` · ${note.patient_sex}` : ''} · Visit: ${parseLocalDate(note.visit_date).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}`;
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;padding:24px;color:#24211E;line-height:1.5}h1{font-size:20px}h2{font-size:17px}.meta{color:#66615D;font-size:13px;margin-bottom:16px}</style></head><body><h2>${title}</h2><div class="meta">${meta}</div><div>${htmlBody}</div></body></html>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{font-family:-apple-system,Helvetica,Arial,sans-serif;padding:24px;color:#24211E;line-height:1.5}h1{font-size:20px}h2{font-size:17px}.meta{color:#66615D;font-size:13px;margin-bottom:16px}</style></head><body><h2>${title}</h2><div class="meta">${metaLine}</div><div>${htmlBody}</div></body></html>`;
     try {
       const Print = await import('expo-print');
       const { uri } = await Print.printToFileAsync({ html, base64: false });
@@ -119,8 +103,7 @@ export function NoteDetailScreen({ navigation, route }: Props) {
       // Never share raw HTML — fall back to readable plain text
       console.warn('[detail] PDF export failed, falling back to plain-text share', e);
       try {
-        const text = plainText(note.note_text ?? note.raw_transcript ?? '');
-        await Share.share({ message: `${title}\n${meta}\n\n${text}`, title });
+        await Share.share({ message: `${title}\n${metaLine}\n\n${reportText}`, title });
         void logAudit(note.id, 'export');
       } catch (shareErr) {
         Alert.alert('PDF failed', shareErr instanceof Error ? shareErr.message : 'Could not generate PDF');

@@ -9,6 +9,7 @@ import { TextInput } from '../../components/ui/TextInput';
 import { Button } from '../../components/ui/Button';
 import { useAuthStore } from '../../features/auth/authStore';
 import { useProfileStore } from '../../features/profile/profileStore';
+import { displayNameFromEmail } from '../../lib/format';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { SettingsStackParamList } from '../../navigation/types';
 
@@ -34,7 +35,7 @@ export function ProfileScreen({ navigation }: Props) {
   }, [profile.displayName, profile.specialty, profile.clinicName, profile.phone]);
 
   const email = user?.email ?? '';
-  const derivedName = email.split('@')[0]?.replace(/[._-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) ?? 'Doctor';
+  const derivedName = displayNameFromEmail(email);
   const shownName = displayName.trim() || derivedName;
   const initial = shownName[0]?.toUpperCase() ?? 'D';
 

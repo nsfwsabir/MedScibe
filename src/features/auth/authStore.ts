@@ -7,12 +7,10 @@ type AuthState = {
   session: Session | null;
   user: User | null;
   initializing: boolean;
-  error: string | null;
   bootstrap: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  clearError: () => void;
 };
 
 let authSubscription: { unsubscribe: () => void } | null = null;
@@ -21,7 +19,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   user: null,
   initializing: true,
-  error: null,
 
   bootstrap: async () => {
     if (authSubscription) {
@@ -63,23 +60,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   signIn: async (email, password) => {
-    set({ error: null });
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      set({ error: error.message });
-      throw error;
-    }
+    if (error) throw error;
     await persistSession(data.session);
     set({ session: data.session, user: data.session.user });
   },
 
   signUp: async (email, password) => {
-    set({ error: null });
     const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      set({ error: error.message });
-      throw error;
-    }
+    if (error) throw error;
     await persistSession(data.session);
     set({ session: data.session, user: data.session?.user ?? null });
   },
@@ -89,6 +78,4 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     await persistSession(null);
     set({ session: null, user: null });
   },
-
-  clearError: () => set({ error: null }),
 }));

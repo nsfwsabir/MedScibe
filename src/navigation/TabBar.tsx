@@ -4,26 +4,20 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, elevation } from '../theme/tokens';
 import { typography } from '../theme/typography';
-import { useUiStore } from '../features/ui/uiStore';
-import { NewNoteModal } from '../screens/notes/NewNoteModal';
-import { NotesIcon, SettingsIcon } from '../components/ui/icons';
+import { ReportsIcon, SettingsIcon } from '../components/ui/icons';
 
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const setNewNoteModalVisible = useUiStore((s) => s.setNewNoteModalVisible);
-
-  const tabs = state.routes.filter((route) => route.name !== 'NewNoteTab');
 
   return (
-    <>
       <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        {tabs.map((route, index) => {
+        {state.routes.map((route) => {
           const realIndex = state.routes.indexOf(route);
           const focused = state.index === realIndex;
-          const isNotes = route.name === 'NotesTab' || route.name === 'ReportsTab';
+          const isNotes = route.name === 'NotesTab';
           const label = isNotes ? 'Reports' : 'Settings';
           const active = focused ? colors.primary : colors.muted;
-          const Icon = isNotes ? NotesIcon : SettingsIcon;
+          const Icon = isNotes ? ReportsIcon : SettingsIcon;
           return (
             <Pressable
               key={route.key}
@@ -41,7 +35,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
             >
               <Icon size={20} color={active} />
               <Text style={[typography.bodySemibold, { color: active }]}>{label}</Text>
-              <View style={[styles.tabDot, focused ? styles.tabDotActive : styles.tabDotInactive]} />
+              {focused ? <View style={[styles.tabDot, styles.tabDotActive]} /> : null}
             </Pressable>
           );
         })}
@@ -49,13 +43,11 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
           accessibilityRole="button"
           accessibilityLabel="New Report"
           style={({ pressed }) => [styles.fab, pressed && styles.fabPressed]}
-          onPress={() => setNewNoteModalVisible(true)}
+          onPress={() => navigation.navigate('NotesTab', { screen: 'Recording' } as never)}
         >
           <Text style={styles.fabIcon}>+</Text>
         </Pressable>
       </View>
-      <NewNoteModal />
-    </>
   );
 }
 
@@ -83,9 +75,6 @@ const styles = StyleSheet.create({
   },
   tabDotActive: {
     backgroundColor: colors.primary,
-  },
-  tabDotInactive: {
-    backgroundColor: 'transparent',
   },
   fab: {
     position: 'absolute',

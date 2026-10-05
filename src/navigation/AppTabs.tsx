@@ -11,7 +11,6 @@ export function AppTabs() {
   return (
     <Tab.Navigator tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false }}>
       <Tab.Screen name="NotesTab" component={NotesNavigator} />
-      <Tab.Screen name="NewNoteTab" component={NotesNavigator} options={{ tabBarButton: () => null }} />
       <Tab.Screen name="SettingsTab" component={SettingsNavigator} />
     </Tab.Navigator>
   );

@@ -47,12 +47,6 @@ export async function removePendingNote(localId: string): Promise<void> {
   await db.runAsync('DELETE FROM pending_notes WHERE local_id = ?', localId);
 }
 
-export async function countPendingNotes(): Promise<number> {
-  const db = await getDb();
-  const row = await db.getFirstAsync<{ c: number }>('SELECT COUNT(*) as c FROM pending_notes');
-  return row?.c ?? 0;
-}
-
 export async function syncPendingNotes(): Promise<{ synced: number; failed: number }> {
   const pending = await fetchPendingNotes();
   let synced = 0;

@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 import { supabase } from '../../lib/supabase';
+import { DEMO_TRANSCRIPT } from './fallbackTranscriber';
 import { Transcriber, TranscriptResult } from './types';
 
 const MODEL_URL =
@@ -9,12 +10,8 @@ const MODEL_URL =
   'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin';
 const MODEL_FILENAME = MODEL_URL.split('/').pop() ?? 'ggml-base.bin';
 
-const DEMO_FALLBACK_TRANSCRIPT =
-  'Patient presents with a persistent dry cough for the past five days. ' +
-  'History of mild seasonal allergies; nasal congestion is worse at night. ' +
-  'Denies chest pain or shortness of breath. ' +
-  'Vitals stable, lungs clear on auscultation. ' +
-  'Recommend fluids, rest, and fluticasone nasal spray daily. Follow up in seven days if symptoms persist.';
+// Offline fallback text lives in fallbackTranscriber (single source).
+const DEMO_FALLBACK_TRANSCRIPT = DEMO_TRANSCRIPT;
 
 function isWavUri(uri: string): boolean {
   const lower = uri.toLowerCase();
@@ -151,9 +148,8 @@ export class WhisperTranscriber implements Transcriber {
   }
 
   private async transcribeWav(wavUri: string, onProgress?: (progress: number) => void): Promise<TranscriptResult> {
-    await this.modelPath(onProgress);
+    const filePath = await this.modelPath(onProgress);
     const { initWhisper } = await import('whisper.rn');
-    const filePath = await this.modelPath();
     const context = await initWhisper({ filePath });
     try {
       const { promise } = context.transcribe(wavUri, {

@@ -1,7 +1,7 @@
 import Constants from 'expo-constants';
 import { Transcriber, TranscriptResult } from './types';
 
-const DEMO_TRANSCRIPT =
+export const DEMO_TRANSCRIPT =
   'Patient presents with a persistent dry cough for the past five days. ' +
   'History of mild seasonal allergies; nasal congestion is worse at night. ' +
   'Denies chest pain or shortness of breath. ' +

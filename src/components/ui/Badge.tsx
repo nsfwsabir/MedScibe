@@ -1,26 +1,24 @@
 import React from 'react';
-import { StyleSheet, Text, ViewStyle } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { colors, radius } from '../../theme/tokens';
 import { typography } from '../../theme/typography';
 
-type Variant = 'draft' | 'finalized' | 'neutral';
+type Variant = 'draft' | 'finalized';
 
 const variantColors: Record<Variant, { bg: string; fg: string }> = {
   draft: { bg: '#CC634520', fg: colors.primary },
   finalized: { bg: colors.successBg, fg: colors.success },
-  neutral: { bg: colors.border, fg: colors.muted },
 };
 
 type Props = {
   label: string;
   variant?: Variant;
-  style?: ViewStyle;
 };
 
-export function Badge({ label, variant = 'neutral', style }: Props) {
+export function Badge({ label, variant = 'draft' }: Props) {
   const c = variantColors[variant];
   return (
-    <Text style={[styles.base, { backgroundColor: c.bg, color: c.fg }, style]}>{label}</Text>
+    <Text style={[styles.base, { backgroundColor: c.bg, color: c.fg }]}>{label}</Text>
   );
 }
 
