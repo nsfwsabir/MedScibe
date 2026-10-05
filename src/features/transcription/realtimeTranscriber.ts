@@ -134,7 +134,7 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
         // and a clinical prompt so domain vocabulary wins over generic guesses.
         transcribeOptions: { language: 'en', translate: false, temperature: 0 },
         initialPrompt:
-          'Clinical radiology report dictated by a doctor. Findings: comminuted fracture of occipital bone extending to temporal bone and occipital condyle. Extraaxial hyperdense collection suggestive of extradural hemorrhage. Midline shift with mass effect and effacement of ventricles. Contusion with surrounding edema. Hypodensity in periventricular region. Measurements in centimeters and millimeters.',
+          'Clinical report dictated by a doctor: patient history and presenting complaints, examination findings, vitals, investigations, diagnosis, prescription with dosage and follow-up plan. Measurements in centimeters and millimeters.',
         promptPreviousSlices: true,
       },
       {
