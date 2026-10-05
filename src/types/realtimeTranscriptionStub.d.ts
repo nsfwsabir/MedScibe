@@ -69,6 +69,13 @@ export class RingBufferVad {
     vadContext: unknown,
     options?: {
       vadPreset?: string;
+      vadOptions?: {
+        threshold?: number;
+        minSpeechDurationMs?: number;
+        minSilenceDurationMs?: number;
+        maxSpeechDurationS?: number;
+        speechPadMs?: number;
+      };
       sampleRate?: number;
       inferenceIntervalMs?: number;
       preRecordingBufferMs?: number;
