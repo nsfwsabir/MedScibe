@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import { LiveTranscript, LiveTranscriber } from './types';
-import { vadModelPath, whisperModelPath } from './whisperModel';
+import { vadModelPath, liveModelPath } from './whisperModel';
 
 const LIVE_WAV_PATH = () => `${FileSystem.cacheDirectory}whisper/live-dictation.wav`;
 
@@ -49,7 +49,7 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
       'whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter'
     );
 
-    const modelFile = await whisperModelPath();
+    const modelFile = await liveModelPath();
     let context: { release(): Promise<void> };
     try {
       context = await initWhisper({ filePath: modelFile });
@@ -58,7 +58,7 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
       // file, fetch it again, and retry once before surfacing the failure.
       console.warn('[live] whisper init failed, redownloading model and retrying', e);
       await FileSystem.deleteAsync(modelFile, { idempotent: true });
-      context = await initWhisper({ filePath: await whisperModelPath() });
+      context = await initWhisper({ filePath: await liveModelPath() });
     }
     this.contexts.push(context);
 
@@ -120,7 +120,8 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
       { whisperContext: context, vadContext, audioStream: new AudioPcmStreamAdapter(), fs },
       {
         audioSliceSec: sliceSec,
-        audioMinSec: 1,
+        // Sub-2s fragments transcribe badly on any model — hold for 2s of speech.
+        audioMinSec: 2,
         audioOutputPath: this.audioUri,
         audioStreamConfig: { sampleRate: 16000, channels: 1, bitsPerSample: 16 },
         // Fixed English (auto-detect misfires on 2s slices), greedy sampling,

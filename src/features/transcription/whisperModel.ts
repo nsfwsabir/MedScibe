@@ -5,6 +5,16 @@ export const WHISPER_MODEL_URL =
   'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin';
 export const WHISPER_MODEL_FILENAME = WHISPER_MODEL_URL.split('/').pop() ?? 'ggml-base.bin';
 
+/**
+ * Live-dictation model: tiny.en is ~75 MB and fast enough to keep up with
+ * speech on mid-tier phones (base lags and text arrives in late bursts).
+ * English-only also sidesteps language misdetection on short slices.
+ */
+export const LIVE_MODEL_URL =
+  process.env.EXPO_PUBLIC_LIVE_MODEL_URL ??
+  'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin';
+export const LIVE_MODEL_FILENAME = LIVE_MODEL_URL.split('/').pop() ?? 'ggml-tiny.en.bin';
+
 /** Silero VAD model for live speech slicing (small, ~2 MB). Overridable via env. */
 export const VAD_MODEL_URL =
   process.env.EXPO_PUBLIC_VAD_MODEL_URL ??
@@ -57,6 +67,11 @@ async function downloadFile(
 export function whisperModelPath(onProgress?: (progress: number) => void): Promise<string> {
   // ggml-base.bin is ~143 MB; anything far smaller is a partial download.
   return downloadFile(WHISPER_MODEL_URL, WHISPER_MODEL_FILENAME, 100_000_000, onProgress);
+}
+
+/** Local path to the live-dictation model (tiny.en, ~75 MB). */
+export function liveModelPath(onProgress?: (progress: number) => void): Promise<string> {
+  return downloadFile(LIVE_MODEL_URL, LIVE_MODEL_FILENAME, 50_000_000, onProgress);
 }
 
 /** Local path to the VAD model. Throws when offline — callers fall back to time slicing. */
