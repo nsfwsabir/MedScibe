@@ -17,6 +17,7 @@ import { useSettingsStore } from '../../features/settings/settingsStore';
 import { logAudit } from '../../features/audit/auditApi';
 import { enqueuePendingNote } from '../../features/offline/pendingNotes';
 import { supabase } from '../../lib/supabase';
+import { cloudTranscribe } from '../../features/transcription/cloudTranscribe';
 import { formatSupabaseError, todayLocalISO } from '../../lib/format';
 import { useAuthStore } from '../../features/auth/authStore';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -76,6 +77,21 @@ export function ProcessingScreen({ navigation, route }: Props) {
     if (!noteIdRef.current) {
       if (liveTranscript) {
         transcriptRef.current = liveTranscript;
+        // Refine with large-v3-turbo when online: live text stays as the
+        // offline fallback, cloud text wins when it succeeds.
+        if (audioUri) {
+          setStep('transcribing');
+          setErrorStage('transcribing');
+          try {
+            const refined = await cloudTranscribe(audioUri, (p) => setProgress(Math.round(p)));
+            if (refined.text.trim()) {
+              console.log('[processing] cloud refine replaced live transcript');
+              transcriptRef.current = refined.text;
+            }
+          } catch (e) {
+            console.warn('[processing] cloud refine failed, keeping live transcript', e);
+          }
+        }
         setStep('cleaning');
       } else {
       // Stage 1: ensure model (shows downloading progress if needed)
