@@ -123,7 +123,11 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
         audioMinSec: 1,
         audioOutputPath: this.audioUri,
         audioStreamConfig: { sampleRate: 16000, channels: 1, bitsPerSample: 16 },
-        transcribeOptions: { language: 'auto' },
+        // Fixed English (auto-detect misfires on 2s slices), greedy sampling,
+        // and a clinical prompt so domain vocabulary wins over generic guesses.
+        transcribeOptions: { language: 'en', translate: false, temperature: 0 },
+        initialPrompt:
+          'Clinical note dictated by a doctor: patient history, symptoms, vitals, diagnosis, prescription and follow-up plan.',
         promptPreviousSlices: true,
       },
       {

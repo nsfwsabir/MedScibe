@@ -24,7 +24,7 @@ export type RealtimeOptions = {
   audioSliceSec?: number;
   audioMinSec?: number;
   maxSlicesInMemory?: number;
-  transcribeOptions?: { language?: string };
+    transcribeOptions?: { language?: string; translate?: boolean; temperature?: number };
   initialPrompt?: string;
   promptPreviousSlices?: boolean;
   audioOutputPath?: string;
