@@ -38,7 +38,16 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
     );
 
     const modelFile = await whisperModelPath();
-    const context = await initWhisper({ filePath: modelFile });
+    let context: { release(): Promise<void> };
+    try {
+      context = await initWhisper({ filePath: modelFile });
+    } catch (e) {
+      // initWhisper reports corrupt files only as a bare JSI error — drop the
+      // file, fetch it again, and retry once before surfacing the failure.
+      console.warn('[live] whisper init failed, redownloading model and retrying', e);
+      await FileSystem.deleteAsync(modelFile, { idempotent: true });
+      context = await initWhisper({ filePath: await whisperModelPath() });
+    }
     this.contexts.push(context);
 
     let vadContext: unknown;
