@@ -17,6 +17,7 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
   private contexts: { release(): Promise<void> }[] = [];
   private audioUri: string | null = null;
   private slices = new Map<number, string>();
+  private loggedSlices = new Set<number>();
   private emit: ((fullText: string) => void) | null = null;
   private pausedText = '';
   private active = false;
@@ -96,6 +97,7 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
 
     this.emit = onText;
     this.slices.clear();
+    this.loggedSlices.clear();
     // Without VAD there is no speech-pause slicing, so cut short time slices
     // — otherwise the first text only appears after a full 30s slice.
     const sliceSec = vadContext ? 30 : 8;
@@ -113,11 +115,16 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
         onTranscribe: (event) => {
           const text = event.data?.result?.trim();
           if (event.type === 'transcribe' && text) {
+            if (!this.loggedSlices.has(event.sliceIndex)) {
+              this.loggedSlices.add(event.sliceIndex);
+              console.log(`[live] slice ${event.sliceIndex} transcribed (${text.length} chars)`);
+            }
             this.slices.set(event.sliceIndex, text);
             this.emit?.(this.fullText());
           }
         },
         onError: (error) => console.warn('[live] realtime error', error),
+        onStatusChange: (isActive) => console.log('[live] audio stream active:', isActive),
       },
     );
     await this.realtime.start();
