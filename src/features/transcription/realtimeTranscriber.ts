@@ -29,14 +29,27 @@ export class WhisperLiveTranscriber implements LiveTranscriber {
       .trim();
   }
 
+  private static logStep(step: string) {
+    console.log(`[live] init: ${step}`);
+  }
+
   private async buildSession(onText: (fullText: string) => void, isResume: boolean) {
+    const log = WhisperLiveTranscriber.logStep;
+    log('importing whisper.rn');
     const { initWhisper, initWhisperVad } = await import('whisper.rn');
+    log(`root exports (initWhisper=${typeof initWhisper}, initWhisperVad=${typeof initWhisperVad})`);
     // Explicit /index: the package exports map points the bare directory form
     // at a nonexistent file, which Metro (unlike tsc) won't fall back from.
-    const { RealtimeTranscriber } = await import('whisper.rn/realtime-transcription/index');
-    const { AudioPcmStreamAdapter } = await import(
+    log('importing realtime-transcription');
+    const rt = await import('whisper.rn/realtime-transcription/index');
+    log(`realtime exports (RealtimeTranscriber=${typeof (rt as any).RealtimeTranscriber})`);
+    const { RealtimeTranscriber } = rt as any;
+    log('importing AudioPcmStreamAdapter');
+    const pcm = await import(
       'whisper.rn/realtime-transcription/adapters/AudioPcmStreamAdapter'
     );
+    log(`adapter exports (AudioPcmStreamAdapter=${typeof (pcm as any).AudioPcmStreamAdapter})`);
+    const { AudioPcmStreamAdapter } = pcm as any;
 
     const modelFile = await whisperModelPath();
     let context: { release(): Promise<void> };

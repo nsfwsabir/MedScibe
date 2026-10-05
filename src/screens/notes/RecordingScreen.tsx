@@ -54,6 +54,10 @@ export function RecordingScreen({ navigation }: Props) {
         if (!cancelled) setStatus('live');
       } catch (e) {
         if (!cancelled) {
+          console.warn(
+            '[live] session start failed:',
+            e instanceof Error ? e.stack ?? e.message : String(e),
+          );
           setStatus('error');
           setError(e instanceof Error ? e.message : 'Could not start live dictation.');
         }
